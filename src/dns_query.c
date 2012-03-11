@@ -2744,15 +2744,10 @@ static int auth_ok(query_stat_array q, const unsigned char *name, int thint, dns
  */
 static int use_server(servparm_t *s, const unsigned char *name)
 {
-	int i,n=DA_NEL(s->alist);
+	int rule= lookup_rtree(name, s->alist);
 
-	for (i=0;i<n;i++) {
-		slist_t *sl=&DA_INDEX(s->alist,i);
-		unsigned int nrem,lrem;
-		domain_match(name,sl->domain,&nrem,&lrem);
-		if(!lrem && (!sl->exact || !nrem))
-			return sl->rule==C_INCLUDED;
-	}
+	if(rule)
+		return rule==C_INCLUDED;
 
 	if (s->policy==C_SIMPLE_ONLY || s->policy==C_FQDN_ONLY) {
                 if(rhnsegcnt(name)<=1)

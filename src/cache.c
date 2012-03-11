@@ -483,7 +483,7 @@ void init_cache_lock()
 #endif
 
 /* Empty the cache, freeing all entries that match the include/exclude list. */ 
-int empty_cache(slist_array sla)
+int empty_cache(inexnode_t *rtree)
 {
 	int i;
 
@@ -492,8 +492,8 @@ int empty_cache(slist_array sla)
 		return 0;
 
 	for(i=0; ; ) {
-		if(sla)
-			free_dns_hash_selected(i,sla);
+		if(rtree)
+			free_dns_hash_selected(i,rtree);
 		else
 			free_dns_hash_bucket(i);
 		if(++i>=HASH_NUM_BUCKETS)

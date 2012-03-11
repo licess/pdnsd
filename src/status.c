@@ -617,7 +617,7 @@ static void *status_thread (void *p)
 				}
 					break;
 				case CTL_EMPTY: {
-					slist_array sla=NULL;
+					inexnode_t *rtree=NULL;
 					char *names; unsigned len;
 
 					DEBUG_MSG("Received EMPTY command.\n");
@@ -631,8 +631,6 @@ static void *status_thread (void *p)
 						while(p<last) {
 							int tp;
 							char *q;
-							slist_t *sl;
-							unsigned sz;
 							unsigned char rhn[DNSNAMEBUFSIZE];
 
 							if(*p=='-') {
@@ -650,32 +648,21 @@ static void *status_thread (void *p)
 							if ((errmsg=parsestr2rhn(ucharp p,q-p,rhn))!=NULL) {
 								DEBUG_MSG("EMPTY: received bad domain name: %s\n",p);
 								print_serr(rs,errmsg);
-								goto free_sla_names_break;
+								goto free_rtree_names_break;
 							}
-							sz=rhnlen(rhn);
-							if (!(sla=DA_GROW1_F(sla,free_slist_domain))) {
+							if(rtree_add_name(&rtree,rhn,0,tp)<0) {
 								print_serr(rs,"Out of memory.");
-								goto free_names_break;
+								goto free_rtree_names_break;
 							}
-							sl=&DA_LAST(sla);
-
-							if (!(sl->domain=malloc(sz))) {
-								print_serr(rs,"Out of memory.");
-								goto free_sla_names_break;
-							}
-							memcpy(sl->domain,rhn,sz);
-							sl->exact=0;
-							sl->rule=tp;
 							p = q+1;
 						}
 					}
-					if(empty_cache(sla))
+					if(empty_cache(rtree))
 						print_succ(rs);
 					else
 						print_serr(rs,"Could not lock the cache.");
-				free_sla_names_break:
-					free_slist_array(sla);
-				free_names_break:
+				free_rtree_names_break:
+					free_rtree(rtree);
 					free(names);
 				}
 					break;

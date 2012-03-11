@@ -270,6 +270,10 @@ typedef struct {
 /* Size (number of bytes) of buffers used to hold domain names. */
 #define DNSNAMEBUFSIZE 256
 
+/* The maximum number of (non-zero) length-bytes a name
+   in length byte-string notation is allowed to contain. */
+#define MAXNLB 128
+
 /* Recursion depth. */
 #define MAX_HOPS 20
 

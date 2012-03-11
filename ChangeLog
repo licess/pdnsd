@@ -1,3 +1,13 @@
+2012-03-06  Paul A. Rombouts  <p.a.rombouts@home.nl>
+
+	* src/conff.c,src/conff.h,src/conf-parser.c,src/dns_query.c,src/cache.c,
+	  src/hash.c,src/status.c
+	In conff.c, the functions rtree_add_name() and lookup_rtree()
+	provide a faster way of checking whether a name matches a
+	list of include/exclude policy rules. At the moment only the
+	look-up is fast, the method to build the tree structure that holds
+	the include/exclude-rule info not yet so.
+
 2012-02-21  Paul A. Rombouts  <p.a.rombouts@home.nl>
 
 	* src/dns_query.c

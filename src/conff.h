@@ -60,11 +60,16 @@ typedef struct {
 typedef DYNAMIC_ARRAY(atup_t) *atup_array;
 
 typedef struct {
-	unsigned char   *domain;
-	short            exact;
-	short            rule;
-} slist_t;
-typedef DYNAMIC_ARRAY(slist_t) *slist_array;
+	unsigned char    *lbl;  /* Points to length byte followed by string. */
+	struct _inexnode *rtree;
+} lblptrpair_t;
+
+typedef struct _inexnode {
+	short            exactrule;
+	short            matchrule;
+	int              nlbl;
+	lblptrpair_t     lblptr[0];  /* Real array length should be nlbl. */
+} inexnode_t;
 
 typedef struct {
 	struct in_addr   a,mask;	
@@ -104,7 +109,7 @@ typedef struct {
 	char             rejectrecursively;
 	short            rejectpolicy;
 	short            policy;
-	slist_array      alist;
+	inexnode_t      *alist;
 	atup_array       atup_a;
 	a4_array         reject_a4;
 #if ALLOW_LOCAL_AAAA
@@ -182,9 +187,10 @@ extern servparm_array servers;
 int read_config_file(const char *nm, globparm_t *global, servparm_array *servers, int includedepth, char **errstr);
 int reload_config_file(const char *nm, char **errstr);
 void free_zone(void *ptr);
-void free_slist_domain(void *ptr);
-void free_slist_array(slist_array sla);
+void free_rtree(inexnode_t *rtree);
 void free_servparm(servparm_t *serv);
+int rtree_add_name(inexnode_t **rtreep, const unsigned char *nm, int exact, int rule);
+int lookup_rtree(const unsigned char *nm, inexnode_t *rtree);
 
 int report_conf_stat(int f);
 #endif

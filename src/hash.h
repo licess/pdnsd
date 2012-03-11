@@ -70,7 +70,7 @@ int add_dns_hash(dns_cent_t *data, dns_hash_loc_t *loc);
 dns_cent_t *del_dns_hash_ent(dns_hash_loc_t *loc);
 dns_cent_t *del_dns_hash(const unsigned char *key);
 void free_dns_hash_bucket(int i);
-void free_dns_hash_selected(int i, slist_array sla);
+void free_dns_hash_selected(int i, inexnode_t *rtree);
 void free_dns_hash();
 
 dns_cent_t *fetch_first(dns_hash_pos_t *pos);

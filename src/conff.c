@@ -31,6 +31,7 @@
 #include "ipvers.h"
 #include "conff.h"
 #include "consts.h"
+#include "error.h"
 #include "helpers.h"
 #include "conf-parser.h"
 #include "servers.h"
@@ -116,6 +117,8 @@ servparm_array servers=NULL;
 static void free_zones(zone_array za);
 static void free_server_data(servparm_array sa);
 static int report_server_stat(int f,int i);
+static int report_alist(int f, inexnode_t *rtree, unsigned char *rbuf, int s,
+			unsigned char *buf, unsigned bufsz);
 
 
 /*
@@ -171,7 +174,7 @@ int read_config_file(const char *nm, globparm_t *global, servparm_array *servers
 			   Perhaps we should use getpwuid_r() instead of getpwuid(), which is not necessarily thread safe.
 			   As long as getpwuid() is only used by only one thread, it should be OK,
 			   but it is something to keep in mind.
-			*/		   
+			*/
 			struct passwd *pws;
 			char owner[24],user[24];
 			if((pws=getpwuid(sb.st_uid)))
@@ -360,18 +363,18 @@ static void free_zones(zone_array za)
 	da_free(za);
 }
 
-void free_slist_domain(void *ptr)
+void free_rtree(inexnode_t *rtree)
 {
-	free(((slist_t *)ptr)->domain);
-}
-
-void free_slist_array(slist_array sla)
-{
-	int j,m=DA_NEL(sla);
-	for(j=0;j<m;++j)
-		free(DA_INDEX(sla,j).domain);
-	da_free(sla);
-
+	if(rtree) {
+		int n=rtree->nlbl;
+		lblptrpair_t *p=rtree->lblptr;
+		while(--n>=0) {
+			free(p->lbl);
+			free_rtree(p->rtree);
+			++p;
+		}
+		free(rtree);
+	}
 }
 
 void free_servparm(servparm_t *serv)
@@ -380,7 +383,7 @@ void free_servparm(servparm_t *serv)
 	free(serv->query_test_name);
 	free(serv->label);
 	da_free(serv->atup_a);
-	free_slist_array(serv->alist);
+	free_rtree(serv->alist);
 	da_free(serv->reject_a4);
 #if ALLOW_LOCAL_AAAA
 	da_free(serv->reject_a6);
@@ -395,11 +398,211 @@ static void free_server_data(servparm_array sa)
 	da_free(sa);
 }
 
+
+/* Add a name (in length byte-string notation) to a label-rule tree.
+   rtree_add_name returns a positive integer if the rule was successfully
+   added to the tree, zero if the rule was ignored because it is redundant
+   or can never match, -1 if a memory-allocation error occurred.
+
+   Note:
+   The insertion algorithm used here is simplistic and has a poor worst-case
+   and average time complexity, but doing this properly requires a lot of
+   of overhead which is probably not worthwhile.
+   However, the look-up algorithm used in the function lookup_rtree() is fast,
+   and that is what counts because insertions are expected to be relatively rare
+   and lookups frequent.
+*/
+int rtree_add_name(inexnode_t **rtreep, const unsigned char *nm, int exact, int rule)
+{
+	inexnode_t *rtree= *rtreep;
+	unsigned int n,lb,sz;
+	unsigned char lnm[MAXNLB];
+
+	/* First collect all length bytes. */
+	n=0;
+	while((lb= *nm)) {
+		PDNSD_ASSERT(n<MAXNLB, "rtree_add_name: too many name segments");
+		lnm[n++]=lb;
+		nm += lb+1;
+	}
+
+	while(n) {
+		lblptrpair_t *p;
+		unsigned char *lbl;
+
+		lb= lnm[--n];
+		sz= lb+1;
+		nm -= sz;
+		if(!rtree) {
+			rtree=malloc(sizeof(inexnode_t)+sizeof(lblptrpair_t));
+			if(!rtree)
+				return -1;
+			*rtreep=rtree;
+			rtree->exactrule=0;
+			rtree->matchrule=0;
+			rtree->nlbl=0;
+			lbl=malloc(sz);
+			if(!lbl)
+				return -1;
+			memcpy(lbl,nm,sz);
+			rtree->nlbl=1;
+			p= &rtree->lblptr[0];
+		}
+		else {
+			int s, t, nlbl;
+			const unsigned char *nmstr;
+			inexnode_t *new;
+			lblptrpair_t *larr;
+
+			if(rtree->matchrule)
+				/* The new rule should be ignored because
+				   a previous rule will always override the new one. */
+				return 0;
+
+			/* Use binary search to look up label in array. */
+			nmstr= nm+1;
+			s=0; t= rtree->nlbl;
+			while(s<t) {
+				int u=(s+t)/2;
+				lblptrpair_t *p= &rtree->lblptr[u];
+				const unsigned char *plbl = p->lbl;
+				int cmp=strlenicmp(nmstr,lb,plbl+1,*plbl);
+				if(cmp<0)
+					t=u;
+				else if(cmp>0)
+					s=u+1;
+				else {  /* found */
+					rtree= p->rtree;
+					rtreep= &p->rtree;
+					goto next_lbl;
+				}
+			}
+			/* Not found, shift entries to make room for a new one. */
+			t=nlbl=rtree->nlbl;
+			++nlbl;
+			new= realloc(rtree, sizeof(inexnode_t) + nlbl*sizeof(lblptrpair_t));
+			if(!new)
+				return -1;
+			*rtreep=rtree=new;
+			lbl=malloc(sz);
+			if(!lbl)
+				return -1;
+			memcpy(lbl,nm,sz);
+
+			rtree->nlbl= nlbl;
+			larr=rtree->lblptr;
+			while(t>s) {
+				int u=t;
+				larr[u]=larr[--t];
+			}
+			p= &larr[s];
+		}
+		p->lbl=lbl;
+		p->rtree=rtree=NULL;
+		rtreep= &p->rtree;
+	next_lbl:;
+	}
+
+	if(!rtree) {
+		rtree=malloc(sizeof(inexnode_t));
+		if(!rtree)
+			return -1;
+		*rtreep=rtree;
+		rtree->exactrule=0;
+		rtree->matchrule=0;
+		rtree->nlbl=0;
+	}
+	if(exact) {
+		if(rtree->exactrule || rtree->matchrule)
+			return 0;
+		rtree->exactrule= rule;
+	}
+	else {
+		if(rtree->matchrule)
+			return 0;
+		rtree->matchrule= rule;
+	}
+
+	return 1;
+}
+
+/* Lookup a name (in length byte-string notation) in a label-rule tree
+   to see if it should be included or excluded.
+   If the name matches a rule, the associated constant is returned,
+   otherwise the return value is zero.
+*/
+int lookup_rtree(const unsigned char *nm, inexnode_t *rtree)
+{
+	int matchrule=0;
+
+	if(rtree) {
+		unsigned int n,lb;
+		unsigned char lnm[MAXNLB];
+
+		/* First collect all length bytes. */
+		n=0;
+		while((lb= *nm)) {
+			PDNSD_ASSERT(n<MAXNLB, "lookup_rtree: too many name segments");
+			lnm[n++]=lb;
+			nm += lb+1;
+		}
+
+		/* It would be conceptually more elegant to use a recursive
+		   algorithm here, but it is probably more efficient to use
+		   iteration. */
+
+		for(;;) {
+			if(rtree->matchrule)
+				matchrule=rtree->matchrule;
+
+			if(n==0) {
+				if(rtree->exactrule)
+					return rtree->exactrule;
+			}
+			else {
+				int s,t;
+				lb=lnm[--n];
+				nm -= lb;
+
+				/* Use binary search to look up label in array. */
+				s=0; t= rtree->nlbl;
+				while(s<t) {
+					int u=(s+t)/2;
+					lblptrpair_t *p= &rtree->lblptr[u];
+					const unsigned char *plbl = p->lbl;
+					int cmp=strlenicmp(nm,lb,plbl+1,*plbl);
+					if(cmp<0)
+						t=u;
+					else if(cmp>0)
+						s=u+1;
+					else {  /* found */
+						if(p->rtree) {
+							rtree= p->rtree;
+							--nm; /* Skip length byte. */
+							goto next_lbl;
+						}
+						/* If we get here the tree is
+						   probably incomplete. */
+						break;
+					}
+				}
+				/* Not found */
+			}
+			break;
+
+		next_lbl:;
+		}
+	}
+
+	return matchrule;
+}
+
+
 /* Report the current configuration to the file descriptor f (for the status fifo, see status.c) */
 int report_conf_stat(int f)
 {
 	int i,n,retval=0;
-	
+
 	fsprintf_or_return(f,"\nConfiguration:\n==============\nGlobal:\n-------\n");
 	fsprintf_or_return(f,"\tCache size: %li kB\n",global.perm_cache);
 	fsprintf_or_return(f,"\tServer directory: %s\n",global.cache_dir);
@@ -513,7 +716,7 @@ static int report_server_stat(int f,int i)
 		{char buf[ADDRSTR_MAXLEN];
 		 fsprintf_or_return(f,"\tip: %s\n",pdnsd_a2str(PDNSD_A2_TO_A(&at->a),buf,ADDRSTR_MAXLEN));}
 		fsprintf_or_return(f,"\tserver assumed available: %s\n",at->is_up?"yes":"no");
-	}		  
+	}
 	fsprintf_or_return(f,"\tport: %hu\n",st->port);
 	fsprintf_or_return(f,"\tuptest: %s\n",const_name(st->uptest));
 	fsprintf_or_return(f,"\ttimeout: %li\n",(long)st->timeout);
@@ -555,13 +758,12 @@ static int report_server_stat(int f,int i)
 	fsprintf_or_return(f,"\tRandomize server query order: %s\n",st->rand_servers?"yes":"no");
 	fsprintf_or_return(f,"\tDefault policy: %s\n",const_name(st->policy));
 	fsprintf_or_return(f,"\tPolicies:%s\n", st->alist?"":" (none)");
-	for (j=0;j<DA_NEL(st->alist);++j) {
-		slist_t *sl=&DA_INDEX(st->alist,j);
-		unsigned char buf[DNSNAMEBUFSIZE];
-		fsprintf_or_return(f,"\t\t%s: %s%s\n",
-				   sl->rule==C_INCLUDED?"include":"exclude",
-				   sl->exact?"":".",
-				   rhn2str(sl->domain,buf,sizeof(buf)));
+	{
+		unsigned char rbuf[DNSNAMEBUFSIZE], sbuf[DNSNAMEBUFSIZE];
+		int rv;
+		rbuf[DNSNAMEBUFSIZE-1]=0;
+		if(rv=(report_alist(f,st->alist,rbuf,DNSNAMEBUFSIZE-1,sbuf,DNSNAMEBUFSIZE))<0)
+			return rv;
 	}
 	if(serv_has_rejectlist(st)) {
 		fsprintf_or_return(f,"\tAddresses which should be rejected in replies:\n");
@@ -584,5 +786,42 @@ static int report_server_stat(int f,int i)
 		fsprintf_or_return(f,"\tReject policy: %s\n",const_name(st->rejectpolicy));
 		fsprintf_or_return(f,"\tReject recursively: %s\n",st->rejectrecursively?"yes":"no");
 	}
+	return 0;
+}
+
+/* Report the information contained in a label-rule tree in the form
+   of a list of include/exclude rules to the file descriptor f.
+   The buffer rbuf should contain, starting at position s, a name in
+   length byte-string notation terminated by a null byte.
+   buf will be used as a temporary string buffer of length bufsz
+   by the algorithm and should be able to hold at least DNSNAMEBUFSIZE bytes.
+*/
+static int report_alist(int f, inexnode_t *rtree, unsigned char *rbuf, int s,
+			unsigned char *buf, unsigned bufsz)
+{
+	if(rtree) {
+		int i,n;
+		if(rtree->exactrule)
+			fsprintf_or_return(f,"\t\t%s: %s\n",
+					   rtree->exactrule==C_INCLUDED?"include":"exclude",
+					   s>=0? charp rhn2str(rbuf+s,buf,bufsz):"!!!NAME TOO LONG!!!");
+		n= rtree->nlbl;
+		for(i=0; i<n; ++i) {
+			lblptrpair_t *p= &rtree->lblptr[i];
+			const unsigned char *plbl= p->lbl;
+			int len= *plbl, sz= len+1, s2= s - sz, rv;
+			if(s2>=0)
+				memcpy(rbuf+s2, plbl, sz);
+
+			if((rv= report_alist(f, p->rtree, rbuf, s2, buf, bufsz))<0)
+				return rv;
+		}
+
+		if(rtree->matchrule)
+			fsprintf_or_return(f,"\t\t%s: .%s\n",
+					   rtree->matchrule==C_INCLUDED?"include":"exclude",
+					   s>=0? charp rhn2str(rbuf+s,buf,bufsz):"!!!NAME TOO LONG!!!");
+	}
+
 	return 0;
 }

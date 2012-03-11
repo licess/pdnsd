@@ -294,9 +294,9 @@ static const char *reject_add(servparm_t *serv, const char *ipstr);
 #define reject_add_(serv,ipstr,len) reject_add(serv,ipstr)
 static void check_localaddrs(servparm_t *serv);
 static int read_resolv_conf(const char *fn, atup_array *ata, char **errstr);
-static const char *slist_add(slist_array *sla, const char *nm, unsigned int len, int tp);
-#define include_list_add(sla,nm,len) slist_add(sla,nm,len,C_INCLUDED)
-#define exclude_list_add(sla,nm,len) slist_add(sla,nm,len,C_EXCLUDED)
+static const char *rtree_add(inexnode_t **rtreep, const char *name, unsigned int length, int tp);
+#define include_list_add(list,nm,len) rtree_add(list,nm,len,C_INCLUDED)
+#define exclude_list_add(list,nm,len) rtree_add(list,nm,len,C_EXCLUDED)
 static const char *zone_add(zone_array *za, const char *zone, unsigned int len);
 
 #define CONCAT(a,b) a ## b
@@ -2071,12 +2071,11 @@ static int read_resolv_conf(const char *fn, atup_array *ata, char **errstr)
   return rv;
 }
 
-static const char *slist_add(slist_array *sla, const char *nm, unsigned int len, int tp)
+static const char *rtree_add(inexnode_t **rtreep, const char *name, unsigned int length, int tp)
 {
-  slist_t *sl;
-  int exact=1;
-  const char *err;
-  size_t sz;
+  const char *nm=name, *err;
+  unsigned int len=length;
+  int exact=1, r;
   unsigned char rhn[DNSNAMEBUFSIZE];
 
   if (len>1 && *nm=='.') {
@@ -2086,17 +2085,12 @@ static const char *slist_add(slist_array *sla, const char *nm, unsigned int len,
   }
   if((err=parsestr2rhn(ucharp nm,len,rhn)))
     return err;
-  sz=rhnlen(rhn);
-  if (!(*sla=DA_GROW1_F(*sla,free_slist_domain))) {
+  r=rtree_add_name(rtreep, rhn, exact, tp);
+  if(r<0)
     return "out of memory!";
-  }
-  sl=&DA_LAST(*sla);
-
-  sl->exact=exact;
-  sl->rule=tp;
-  if (!(sl->domain=malloc(sz)))
-    return "out of memory!";
-  memcpy(sl->domain,rhn,sz);
+  if(r==0)
+    fprintf(stderr, "The policy rule \"%.*s = %.*s\" in the configuration file is redundant or will never match.\n",
+	    (int)strlitlen("include"),const_name(tp),length,name);
   return NULL;
 }
 

@@ -210,37 +210,25 @@ void free_dns_hash_bucket(int i)
  * Delete all entries in a hash bucket whose names match those in
  * an include/exclude list.
  */
-void free_dns_hash_selected(int i, slist_array sla)
+void free_dns_hash_selected(int i, inexnode_t *rtree)
 {
 	dns_hash_ent_t **hep,*he,*hen;
-	int j,m=DA_NEL(sla);
 
 	hep= &hash_buckets[i];
 	he= *hep;
 
 	while (he) {
-		unsigned char *name=he->data->qname;
-		for(j=0;j<m;++j) {
-			slist_t *sl=&DA_INDEX(sla,j);
-			unsigned int nrem,lrem;
-			domain_match(name,sl->domain,&nrem,&lrem);
-			if(!lrem && (!sl->exact || !nrem)) {
-				if(sl->rule==C_INCLUDED)
-					goto delete_entry;
-				else
-					break;
-			}
+		if(lookup_rtree(he->data->qname, rtree) == C_INCLUDED) {
+			*hep=hen=he->next;;
+			del_cent(he->data);
+			free(he);
+			he=hen;
 		}
-		/* default policy is not to delete */
-		hep= &he->next;
-		he= *hep;
-		continue;
-
-	delete_entry:
-		*hep=hen=he->next;;
-		del_cent(he->data);
-		free(he);
-		he=hen;
+		else {
+			/* default policy is not to delete */
+			hep= &he->next;
+			he= *hep;
+		}
 	}
 }
 

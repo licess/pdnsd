@@ -198,12 +198,27 @@ inline static ssize_t write_all(int fd,const void *data,size_t n)
 void hexdump(const void *data, int dlen, char *buf, int buflen);
 int escapestr(const char *in, int ilen, char *str, int size);
 
-#if 0
-inline static int stricomp(const char *a, const char *b)
+
+/* Compare two strings (char arrays with length arguments)
+   ignoring upper/lower case.
+   The return value of strlenicmp is less than, equal to or greater
+   than zero if a is found to be, respectively, less than, equivalent
+   to or greater than b.
+*/
+inline __attribute__((always_inline))
+static int strlenicmp(const unsigned char *a, unsigned lena,
+		      const unsigned char *b, unsigned lenb)
 {
-  return !strcasecmp(a,b);
+  unsigned i, len=lena;
+  if(len>lenb) len=lenb;
+
+  for(i=0; i<len; ++i) {
+    int cmp= tolower(a[i])-tolower(b[i]);
+    if(cmp) return cmp;
+  }
+
+  return lena>lenb? 1: lena<lenb? -1: 0;
 }
-#endif
 
 /* compare two names in length byte - string format
    rhnicmp returns 1 if the names are the same (ignoring upper/lower case),

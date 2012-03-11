@@ -159,7 +159,7 @@ inline static void init_cache_lock()
 	use_cache_lock=1;
 }
 
-int empty_cache(slist_array sla);
+int empty_cache(inexnode_t *rtree);
 void destroy_cache(void);
 void read_disk_cache(void);
 void write_disk_cache(void);
