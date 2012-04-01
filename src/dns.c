@@ -67,7 +67,7 @@ int decompress_name(unsigned char *msg, size_t msgsz, unsigned char **src, size_
 				goto name_outside_msg;
 			newsz--;
 			offs=((lb&0x3f)<<8)|(*lptr);
-			if (offs>=msgsz) 
+			if (offs>=msgsz)
 				goto offset_outside_msg;
 			lptr=msg+offs;
 			goto jumped;
