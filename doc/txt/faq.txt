@@ -12,16 +12,16 @@ Q:  There are complete and well-tested name servers around, such as the BIND.
     connected to to their network, e.g. notebooks (I originally wrote this
     program for use with my notebook). These features are:
 A:
-      * permanent disk cache (useful for frequent power-offs/reboots)
-      * usually smaller memory footprint (depends on cache size) (see next
+      • permanent disk cache (useful for frequent power-offs/reboots)
+      • usually smaller memory footprint (depends on cache size) (see next
         question)
-      * offline-detection prevents hangs (e.g. the typical hang on startup of
+      • offline-detection prevents hangs (e.g. the typical hang on startup of
         some Netscape Navigator versions if not dialled in)
-      * better control about timeouts (also to prevent hangs)
-      * better control over the cache
-      * better run-time control
+      • better control about timeouts (also to prevent hangs)
+      • better control over the cache
+      • better run-time control
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     When I look at the process size with ps, top, gtop, or a similar tool, I
 Q:  see some processes with a total size well above 3.5 MB. This is much more
@@ -38,24 +38,24 @@ A:  (although the processes have different stacks, these are in one process
     So, pdnsd with empty cache occupies about 800 kB, and the maximum size
     should be about the cache size plus this size (in fact, ca 5-10% more).
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Q:  What do I need the status control (option -s) for?
 
     It enables you to do some things you might or might not need. With it, you
     can:
 
-      * query pdnsd's settings at runtime to debug configuration files and see
+      • query pdnsd's settings at runtime to debug configuration files and see
         which servers are regarded to be available
-A:    * mark servers as available or unavailable, or force a status retest -
+A:    • mark servers as available or unavailable, or force a status retest -
         very handy if you want to control which servers pdnsd queries, e.g for
         muliple dial-up accounts
-      * delete, invalidate or add DNS records - useful e.g. when you want to
+      • delete, invalidate or add DNS records - useful e.g. when you want to
         build records for dynamically assigned IP addresses or domain names
-      * reload pdnsd's configuration file without restarting pdnsd
-      * print information about the contents of pdnsd's cache.
+      • reload pdnsd's configuration file without restarting pdnsd
+      • print information about the contents of pdnsd's cache.
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Q:  What do I need local records (rr- and source-sections in the config file)
     for?
@@ -83,7 +83,7 @@ A:  The source section allows you to let pdnsd read in your /etc/hosts file on
     source section in the sample config file that comes with pdnsd, copy it
     into your config file and forget about it.
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     When compiling, I get an error message like
 Q:  Please define __BYTE_ORDER to be __LITTLE_ENDIAN or __BIG_ENDIAN
@@ -109,7 +109,7 @@ A:  (big-endian). All intel x86 and Alpha machines are little-endian, for
     (it deals only with 16 bits; for all other occurances, ntoh[sl]/hton[sl] is
     used).
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     At startup, I get a warning saying:
 Q:  Uptest command [...] will implicitly be executed as root
@@ -126,7 +126,7 @@ A:  they run as root, and so they shouldn't do that if possible. You can
     If it is correctly running as root, just append the user string "root" to
     the command and the warning will not occur again.
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Q:  I cannot run my uptest_cmd command as root (it says permission denied),
     although the pdnsd executable is setuid root. Why?
@@ -137,7 +137,7 @@ A:  anyway). The reason is clear: if you install the pdnsd executable as setuid
     root and this wouln't be done, any user could execute shellcode with root
     privileges using that option!
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     At startup, I get an error saying:
 Q:  Bad config file permissions: the file must be only writeable by the user
@@ -155,7 +155,7 @@ A:  it and insert shell code that is executed in the next pdnsd run -- with
     on your config file (for the default file: chmod go-w /etc/pdnsd.conf). You
     should also check that the ownership is set correct.
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Q:  serve_aliases does not seem to work.
 
@@ -165,7 +165,7 @@ A:  appended. Since pdnsd will serve short names with this option anyway, you
     can delete the search an domain options from your /etc/resolv.conf. This is
     reported to work in some cases.
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Q:  Some queries for domains that have many records (e.g. www.gmx.de) fail
     mysteriously.
@@ -176,7 +176,7 @@ A:  truncated answer (the answer is truncated when it exceeds a length of 512
     bytes). You need to recompile pdnsd with the option --enable-tcp-server to
     fix this.
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     I am behind some kind of firewall. In the configuration file I have only
 Q:  listed addresses of name servers on the local (ISP's) network, but pdnsd is
@@ -194,7 +194,7 @@ A:  servers sections of the configuration file. This will prevent pdnsd from
     blocks UDP packets from outside might still allow outgoing TCP connections
     to port 53.
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Q:  Is pdnsd vulnerable to DNS cache poisoning as described in CERT
     vulnerability note VU#800113?
@@ -218,7 +218,7 @@ A:  1024, which means that the pdnsd resolver will randomly select source ports
     Please note that pdnsd was designed for small (private) networks, and that
     it is generally not recommended to let untrusted users access pdnsd.
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Thomas Moestl and Paul Rombouts
 

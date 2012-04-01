@@ -343,9 +343,9 @@ Normally, you will need only --prefix, --sysconfdir and --with-distribution. If
 you specify your distribution using --with-distribution, this has the following
 effects:
 
-  * An rc script is copied in the appropriate localtion, which enables pdnsd to
+  • An rc script is copied in the appropriate localtion, which enables pdnsd to
     start at machine boot time (see 0.4)
-  * Distribution-specific portions might be included in the generated
+  • Distribution-specific portions might be included in the generated
     pdnsd.spec file (only important if you want to build rpm archives
     yourself).
 
@@ -1039,17 +1039,17 @@ uptest=(ping|none|if|dev|diald|exec|query);
 Determine the method to check whether the server is available. Currently
 defined methods are:
 
-  * ping: Send an ICMP_ECHO request to the server. If it doesn't respond within
+  • ping: Send an ICMP_ECHO request to the server. If it doesn't respond within
     the timeout, it is regarded to be unavailable until the next probe.
-  * none: The availability status is not changed, only the time stamp is
+  • none: The availability status is not changed, only the time stamp is
     updated.
-  * if: Check whether the interface (specified in the interface= option) is
+  • if: Check whether the interface (specified in the interface= option) is
     existent, up and running. This currently works for all "ordinary" network
     interfaces, interfaces that disappear when down (e.g. ppp?), and
     additionally for Linux isdn interfaces (as of kernel 2.2). Note that you
     need a /dev/isdninfo device file (major#45, minor#255), or the isdn uptest
     will always fail.
-  * dev and diald: Perform an if uptest, and, if that was succesful,
+  • dev and diald: Perform an if uptest, and, if that was succesful,
     additionally check whether a program is running that has locked a given
     (modem-) device. The needed parameters are an interface (specified as for
     the if uptest, e.g. "ppp0") and a device relative to /dev (e.g. "modem" for
@@ -1061,13 +1061,13 @@ defined methods are:
     is executed for the given interface.
     The dev option is for pppd dial-on-demand, diald is the same for diald
     users.
-  * exec: Executes a given command in the /bin/sh shell (as /bin/sh -c
+  • exec: Executes a given command in the /bin/sh shell (as /bin/sh -c
     <command>) and evaluates the result (the return code of the last command)
     in the shell's way of handling return codes, i.e. 0 indicates success, all
     other indicate failure. The shell's process name will be uptest_sh. The
     command is given with the uptest_cmd option (see below). For secuity
     issues, also see that entry.
-  * query: New in version 1.2: This works like the ping test, except it sends
+  • query: New in version 1.2: This works like the ping test, except it sends
     an (empty) DNS query to the remote server. If the server sends a
     well-formed response back within the timeout period (except SERVFAIL), it
     will be regarded as available. This test is useful if a remote server does
@@ -1990,7 +1990,7 @@ src/status.c, src/    Define functions for the status control thread. This is
 status.h              pdnsd's interface to pdnsd-ctl.
 
 
--------------------------------------------------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Copyright (C) 2000, 2001 Thomas Moestl
 Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2012 Paul A. Rombouts
