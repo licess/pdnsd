@@ -2625,6 +2625,9 @@ static int auth_ok(query_stat_array q, const unsigned char *name, int thint, dns
 		return 1;
 
 	if(qse->aa) {
+#ifdef ALWAYS_TRUST_AA_FLAG
+		return 1;
+#else
 		/* The reply we have claims to be authoritative.
 		   However, I have seen cases where name servers raise the authority flag incorrectly (groan...),
 		   so as a work-around, we will check whether the domains for which the servers in the ns
@@ -2667,6 +2670,7 @@ static int auth_ok(query_stat_array q, const unsigned char *name, int thint, dns
 					 rhn2str(nsdomain,sdbuf,sizeof(sdbuf)));
 		}
 #endif
+#endif /* ALWAYS_TRUST_AA_FLAG */
 	}
 
 	/* The answer was non-authoritative. Try to build a list of addresses of authoritative servers. */

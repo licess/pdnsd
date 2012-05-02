@@ -179,6 +179,11 @@ AC_ARG_ENABLE(strict-rfc2181,
 [  --enable-strict-rfc2181     Enforce strict RFC 2181 compliance],
    test $enableval = "yes" && AC_DEFINE(RFC2181_ME_HARDER))
 
+AC_ARG_ENABLE(always-trust-aa-flag,
+[  --enable-always-trust-aa-flag Always trust the AA flag of remote servers,
+                              even if they appear to delegate to a sub-domain.],
+   test $enableval = "yes" && AC_DEFINE(ALWAYS_TRUST_AA_FLAG))
+
 AC_ARG_WITH(random-device,
 [  --with-random-device=device Specify random device other than 
                               /dev/random; default: C Library random() PRNG;

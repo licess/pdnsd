@@ -85,6 +85,17 @@
  * intolerant. */
 #undef RFC2181_ME_HARDER
 
+/* Define this if pdnsd should stop following the delegation chain as soon as it
+ * receives an answer with the AA flag raised, even if the authority section of
+ * the answer appears to delegate to a sub-domain.
+ * If ALWAYS_TRUST_AA_FLAG is defined there will be a slight risk of getting an
+ * incomplete or wrong answer if the remote server set the AA flag
+ * incorrectly. If it is not defined you run the risk of a timeout if pursuing
+ * the delegation chain further takes too long. This is normally only an issue
+ * if you resolve from root servers, not if you only use proxy servers.
+ */
+#undef ALWAYS_TRUST_AA_FLAG
+
 /* Define this to the device you want to use for getting random numbers.
  * Leave this undefined if you wand to use the standard C library random
  * function, which basically should be sufficient.

@@ -749,6 +749,7 @@ enable_socket_locking
 enable_poll
 enable_new_rrs
 enable_strict_rfc2181
+enable_always_trust_aa_flag
 with_random_device
 enable_underscores
 with_default_id
@@ -1417,6 +1418,8 @@ Optional Features:
                               (default=enabled)
   --disable-new-rrs           Disable new DNS RR types (obsolete, currently ignored)
   --enable-strict-rfc2181     Enforce strict RFC 2181 compliance
+  --enable-always-trust-aa-flag Always trust the AA flag of remote servers,
+                              even if they appear to delegate to a sub-domain.
   --enable-underscores        Allow _ in domain names (obsolete, currently ignored)
   --enable-hash-debug         Debug hash tables (warning: massive output)
   --enable-rcsids             Enable RCS IDs in executables (obsolete, currently ignored)
@@ -4652,6 +4655,15 @@ fi
 if test "${enable_strict_rfc2181+set}" = set; then
   enableval=$enable_strict_rfc2181; test $enableval = "yes" && cat >>confdefs.h <<\_ACEOF
 #define RFC2181_ME_HARDER 1
+_ACEOF
+
+fi
+
+
+# Check whether --enable-always-trust-aa-flag was given.
+if test "${enable_always_trust_aa_flag+set}" = set; then
+  enableval=$enable_always_trust_aa_flag; test $enableval = "yes" && cat >>confdefs.h <<\_ACEOF
+#define ALWAYS_TRUST_AA_FLAG 1
 _ACEOF
 
 fi
