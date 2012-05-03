@@ -54,7 +54,7 @@ static const char cachverid[] = {'p','d','1','3'};
  * files of older versions and vice versa. In addition, cache files from 1.0.0p5 on are incompatible to those of 1.0.0p1
  * to 1.0.0p4.  Better delete them before upgrading.
  * The "cent" lists common to old versions have vanished; the only access point to the cent's is the hash.
- * However, there are now double linked rrset lists. Thus, rrs can be acces through the hash or through the rrset lists.
+ * However, there are now doubly-linked rrset lists. Thus, rrs can be accessed through the hash or through the rrset lists.
  * The rrset list entries need some additional entries to manage the deletion from rrs lists as well as from the cents.
  *
  * Nearly all cache functions had to be changed significantly or even to be rewritten for that. Expect some beta time
@@ -64,9 +64,10 @@ static const char cachverid[] = {'p','d','1','3'};
  * to have stored its oname any more. There are more pointers however, and in some cases (CNAMES) the memory require-
  * ments for some records may increase. The total should be lower, however.
  *
- * RRSET_L LIST STRUCTURE:
- * The rrset_l rrset list is a simple double-linked list. The oldest entries are at the first positions, the list is sorted
- * by age in descending order. Search is done only on insert.
+ * RRSET LIST STRUCTURE:
+ * The rr_l rrset list is a circular doubly-linked list with a sentinel (i.e. dummy) node.
+ * The oldest entries are at the first positions, the list is sorted by timestamp in ascending order.
+ * Search is done only on insert.
  * The rationale for this form is:
  * - the purging operation needs to be fast (this way, the first records are the oldest and can easily be purged)
  * - the append operation is common and needs to be fast (in normal operation, an appended record was just retrieved
@@ -138,21 +139,28 @@ typedef struct {
 }  __attribute__((packed))
 dom_fttlts_t;
 
+/* Link pairs used for doubly linked lists. */
+typedef struct {
+	struct rr_lent_s *next,
+	                 *prev;
+} linkpair_t;
+
 /*
  * This has two modes: Normally, we have rrset, cent and idx filled in;
  * for negatively cached cents, we have rrset set to NULL and idx set to -1.
  */
 typedef struct rr_lent_s {
-	struct rr_lent_s *next;
-	struct rr_lent_s *prev;
+	linkpair_t       links;
 	rr_set_t         *rrset;
 	dns_cent_t       *cent;
 	int              idx;    /* This is the array index, not the type of the RR-set. */
 } rr_lent_t;
 
-
-static rr_lent_t *rrset_l=NULL;
-static rr_lent_t *rrset_l_tail=NULL;
+/* Maintain a doubly-linked circular list of rr_lent_t nodes, with
+   rr_l acting as a dummy or sentinel node.
+   Never try to access the data fields of the sentinel, only use the links! */
+#define NIL_L ((rr_lent_t *) &rr_l)
+static linkpair_t rr_l= {NIL_L,NIL_L};
 
 /*
  * We do not count the hash table sizes here. Those are very small compared
@@ -882,7 +890,7 @@ inline static time_t get_rrlent_ts(rr_lent_t *le)
 	return (le->rrset)?(le->rrset->ts):(le->cent->neg.ts);
 }
 
-/* insert a rrset into the rr_l list. This modifies the rr_set_t if rrs is not NULL!
+/* Insert a rrset into the rr_l list. This modifies the rr_set_t if rrs is not NULL!
  * The rrset address needs to be constant afterwards.
  * idx is the internally used RR-set index, not the RR type!
  * Call with locks applied. */
@@ -900,45 +908,31 @@ static int insert_rrl(rr_set_t *rrs, dns_cent_t *cent, int idx)
 	ne->rrset=rrs;
 	ne->cent=cent;
 	ne->idx=idx;
-	ne->next=NULL;
-	ne->prev=NULL;
+	ne->links.next=NULL;
+	ne->links.prev=NULL;
 
 	if(insert_sort) {
-		/* Since the append at the and is a very common case (and we want this case to be fast), we search back-to-forth.
-		 * Since rr_l is a list and we don't really have fast access to all elements, we do not perform an advanced algorithm
-		 * like binary search.*/
+		/* Since the append at the and is a very common case (and we want this case to be fast),
+		   we search back-to-front.  Since rr_l is a list and we don't really have fast access
+		   to all elements, we do not perform an advanced algorithm like binary search.*/
 		ts=get_rrlent_ts(ne);
-		le=rrset_l_tail;
-		while (le) {
-			if (ts>=get_rrlent_ts(le)) goto found;
-			le=le->prev;
-		}
-		/* not found, so it needs to be inserted at the start of the list. */
-		ne->next=rrset_l;
-		if (rrset_l)
-			rrset_l->prev=ne;
-		else
-			rrset_l_tail=ne;
-		rrset_l=ne;
-		goto finish;
-	found:
-		ne->next=le->next;
-		ne->prev=le;
-		if (le->next)
-			le->next->prev=ne;
-		else
-			rrset_l_tail=ne;
-		le->next=ne;
-	finish:;
+		le=rr_l.prev;
+		while (le!=NIL_L && ts<get_rrlent_ts(le))
+			le=le->links.prev;
+
+		/* Insert the new node right after the position indicated by le, which points
+		   to the sentinel or a proper list node. */
+		ne->links.next=le->links.next;
+		ne->links.prev=le;
+		le->links.next->links.prev=ne;
+		le->links.next=ne;
 	}
 	else {
 		/* simply append at the end, sorting will be done later with a more efficient algorithm. */
-		ne->prev=rrset_l_tail;
-		if(rrset_l_tail)
-			rrset_l_tail->next=ne;
-		else
-			rrset_l=ne;
-		rrset_l_tail=ne;
+		ne->links.next=NIL_L;
+		ne->links.prev=rr_l.prev;
+		rr_l.prev->links.next=ne;
+		rr_l.prev=ne;
 	}
 
 	if (rrs)
@@ -949,23 +943,18 @@ static int insert_rrl(rr_set_t *rrs, dns_cent_t *cent, int idx)
 	return 1;
 }
 
-/* Remove a rr from the rr_l list. Call with locks applied. */
+/* Remove a rr from the rr_l list. Call with locks applied.
+   Never use this to remove the sentinel node! */
 static void remove_rrl(rr_lent_t *le  DBGPARAM)
 {
-	rr_lent_t *next=le->next,*prev=le->prev;
-	if (next)
-		next->prev=prev;
-	else
-		rrset_l_tail=prev;
-	if (prev)
-		prev->next=next;
-	else
-		rrset_l=next;
+	rr_lent_t *next=le->links.next, *prev=le->links.prev;
+	next->links.prev=prev;
+	prev->links.next=next;
 	cache_free(le);
 }
 
 
-/* Merge two sorted rr_l lists to make a larger sorted list.
+/* Merge two sorted (NULL-terminated) rr_l lists to make a larger sorted list.
    The lists are sorted according to increasing time-stamp.
    The back links are ignored, these must be fixed using a separate pass.
 */
@@ -982,7 +971,7 @@ static rr_lent_t *listmerge(rr_lent_t *p, rr_lent_t *q)
 		for(;;) {
 			if(get_rrlent_ts(p) <= get_rrlent_ts(q)) {
 				*s= p;
-				s= &p->next;
+				s= &p->links.next;
 				p= *s;
 				if(!p) {
 					*s= q;
@@ -991,7 +980,7 @@ static rr_lent_t *listmerge(rr_lent_t *p, rr_lent_t *q)
 			}
 			else { /* get_rrlent_ts(p) > get_rrlent_ts(q) */
 				*s= q;
-				s= &q->next;
+				s= &q->links.next;
 				q= *s;
 				if(!q) {
 					*s= p;
@@ -1012,18 +1001,20 @@ static rr_lent_t *listmerge(rr_lent_t *p, rr_lent_t *q)
 static void sort_rrl()
 {
 	/* Do nothing unless the list has length >= 2. */
-	if(rrset_l && rrset_l->next) {
+	if(rr_l.next!=NIL_L && rr_l.next->links.next!=NIL_L) {
 		/* First sort the list ignoring the back links, these will be fixed later. */
 #               define NTMPSORT 32
 		/* Because we use an array of fixed length, the length of the list we can sort
 		   is bounded by pow(2,NTMPSORT)-1. */
 		rr_lent_t *tmp[NTMPSORT];  /* tmp[i] will either be NULL or point to a sorted list of length pow(2,i). */
 		rr_lent_t **fill= tmp, **end=tmp+NTMPSORT, **counter;
-		rr_lent_t *rem= rrset_l, *carry;
+		rr_lent_t *rem, *carry;
 
+		rr_l.prev->links.next=NULL;  /* Make the list temporarily NULL terminated. */
+		rem= rr_l.next;
 		do {
-			carry=rem; rem=rem->next;
-			carry->next=NULL;
+			carry=rem; rem=rem->links.next;
+			carry->links.next=NULL;
 			for(counter = tmp; counter!=fill && *counter!=NULL; ++counter) {
 				carry=listmerge(*counter,carry);
 				*counter=NULL;
@@ -1043,13 +1034,15 @@ static void sort_rrl()
 		while(++counter!=fill)
 			carry=listmerge(*counter,carry);
 
-		rrset_l= carry;
+		rr_l.next= carry;
 
 		{
 			/* Restore the backward links. */
-			rr_lent_t *p,*q=NULL;
-			for(p=rrset_l; p; p=p->next) {p->prev=q; q=p;}
-			rrset_l_tail=q;
+			rr_lent_t *p,*q=NIL_L;
+			for(p=rr_l.next; p; p=p->links.next) {p->links.prev=q; q=p;}
+			/* Make the list circular again. */
+			q->links.next=NIL_L;
+			rr_l.prev=q;
 		}
 	}
 }
@@ -1319,12 +1312,12 @@ static void purge_cache(long sz, int lazy)
 	 * records.
 	 * XXX: We walk the list a second time if this did not free up enough space - this
 	 * should be done better. */
-	le=rrset_l;
-	while (le && (!lazy || cache_size>sz)) {
+	le=rr_l.next;
+	while (le!=NIL_L && (!lazy || cache_size>sz)) {
 		/* Note by Paul Rombouts:
-		 * If data integrity is ensured, at most one node is removed from the rrset_l
+		 * If data integrity is ensured, at most one node is removed from the rr_l list
 		 * per iteration, and this node is the one referenced by le. */
-		rr_lent_t *next=le->next;
+		rr_lent_t *next=le->links.next;
 		if (!((le->rrset && (le->rrset->flags&CF_LOCAL)) ||
 		      (le->cent->flags&DF_LOCAL))) {
 			dns_cent_t *ce = le->cent;
@@ -1349,9 +1342,9 @@ static void purge_cache(long sz, int lazy)
 		insert_sort=1; /* use insertion sort from now on */
 	}
 
-	le=rrset_l;
-	while (le && cache_size>sz) {
-		rr_lent_t *next=le->next;
+	le=rr_l.next;
+	while (le!=NIL_L && cache_size>sz) {
+		rr_lent_t *next=le->links.next;
 		if (!((le->rrset && (le->rrset->flags&CF_LOCAL)) ||
 		      (le->cent->flags&DF_LOCAL))) {
 			dns_cent_t *ce = le->cent;
