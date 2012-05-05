@@ -168,9 +168,12 @@ int report_cache_stat(int f);
 int dump_cache(int fd, const unsigned char *name, int exact);
 
 /*
- *  add_cache expects the dns_cent_t to be filled.
+ *  add_cache is a variant of merge_cache that does not modify its argument.
+ *  move_to_cache is a variant of merge_cache that removes the RR sets from the source.
  */
-void add_cache(dns_cent_t *cent);
+#define add_cache(cent) merge_cache(cent,0)
+#define move_to_cache(cent) merge_cache(cent,-1)
+void merge_cache(dns_cent_t *cent, int merge);
 int add_reverse_cache(dns_cent_t * cent);
 void del_cache(const unsigned char *name);
 void invalidate_record(const unsigned char *name);
@@ -199,7 +202,7 @@ inline static unsigned int mk_flag_val(servparm_t *server)
 int init_cent(dns_cent_t *cent, const unsigned char *qname, time_t ttl, time_t ts, unsigned flags  DBGPARAM);
 int add_cent_rrset_by_type(dns_cent_t *cent,  int type, time_t ttl, time_t ts, unsigned flags  DBGPARAM);
 int add_cent_rr(dns_cent_t *cent, int type, time_t ttl, time_t ts, unsigned flags,unsigned dlen, void *data  DBGPARAM);
-int del_rrset(rr_set_t *rrs  DBGPARAM);
+unsigned int del_rrset(rr_set_t *rrs  DBGPARAM);
 void free_cent(dns_cent_t *cent  DBGPARAM);
 void free_cent0(void *ptr);
 void negate_cent(dns_cent_t *cent, time_t ttl, time_t ts);
@@ -208,8 +211,6 @@ void del_cent(dns_cent_t *cent);
 /* Because this is empty by now, it is defined as an empty macro to save overhead.*/
 /*void free_rr(rr_bucket_t cent);*/
 #define free_rr(x)
-
-dns_cent_t *copy_cent(dns_cent_t *cent  DBGPARAM);
 
 #if 0
 unsigned long get_serial(void);

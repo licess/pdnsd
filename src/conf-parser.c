@@ -1725,7 +1725,7 @@ int confparse(FILE* in, char *prestr, globparm_t *global, servparm_array *server
 	      else
 		goto bad_types_option;
 
-	      add_cache(&c_cent);
+	      move_to_cache(&c_cent);
 	      CLEANUP_HANDLER;
 #	      undef  CLEANUP_HANDLER
 #	      define CLEANUP_HANDLER

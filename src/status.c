@@ -518,7 +518,7 @@ static void *status_thread (void *p)
 							}
 						}
 
-						add_cache(&cent);
+						move_to_cache(&cent);
 						print_succ(rs);
 					cleanup_cent:
 						free_cent(&cent  DBG1);
@@ -562,7 +562,7 @@ static void *status_thread (void *p)
 								goto out_of_memory;
 							}
 						}
-						add_cache(&cent);
+						move_to_cache(&cent);
 						free_cent(&cent DBG1);
 					}
 					print_succ(rs);

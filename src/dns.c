@@ -347,7 +347,7 @@ static int add_host(unsigned char *pn, unsigned char *rns, pdnsd_ca *a, int tp, 
 		goto free_cent_return0;
 	if (!add_cent_rr(&ce,T_NS,ttl,0,CF_LOCAL,rhnlen(rns),rns  DBG0))
 		goto free_cent_return0;
-	add_cache(&ce);
+	move_to_cache(&ce);
 	free_cent(&ce  DBG0);
 	if (reverse) {
 		unsigned char b2[DNSNAMEBUFSIZE],rhn[DNSNAMEBUFSIZE];
@@ -361,7 +361,7 @@ static int add_host(unsigned char *pn, unsigned char *rns, pdnsd_ca *a, int tp, 
 			goto free_cent_return0;
 		if (!add_cent_rr(&ce,T_NS,ttl,0,CF_LOCAL,rhnlen(rns),rns  DBG0))
 			goto free_cent_return0;
-		add_cache(&ce);
+		move_to_cache(&ce);
 		free_cent(&ce  DBG0);
 	}
 	return 1;
