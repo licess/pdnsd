@@ -43,7 +43,7 @@
 
 
 /* A version identifier to prevent reading incompatible cache files */
-static const char cachverid[] = {'p','d','1','3'};
+static const char cachverid[] = {'p','d','1','4'};
 
 /* CACHE STRUCTURE CHANGES IN PDNSD 1.0.0
  * Prior to version 1.0.0, the cache was managed at domain granularity (all records of a domain were handled as a unit),
@@ -161,6 +161,7 @@ typedef struct rr_lent_s {
    Never try to access the data fields of the sentinel, only use the links! */
 #define NIL_L ((rr_lent_t *) &rr_l)
 static linkpair_t rr_l= {NIL_L,NIL_L};
+static rr_lent_t *last_nocache= NIL_L;  /* Points to last node with CF_NOCACHE/DF_NOCACHE. */
 
 /*
  * We do not count the hash table sizes here. Those are very small compared
@@ -1016,12 +1017,26 @@ static int insert_rrl(rr_set_t *rrs, dns_cent_t *cent, int idx)
 	ne->links.prev=NULL;
 
 	if(insert_sort) {
+		rr_lent_t *last;
+		int nocache;
 		/* Since the append at the and is a very common case (and we want this case to be fast),
 		   we search back-to-front.  Since rr_l is a list and we don't really have fast access
-		   to all elements, we do not perform an advanced algorithm like binary search.*/
+		   to all elements, we do not perform an advanced algorithm like binary search.
+		   The rr_l list actually has two parts: all the nodes with [CD]F_NOCACHE are in
+		   front of the other nodes. This is done because we want the nodes with [CD]F_NOCACHE
+		   to be purged before the others. */
 		ts=get_rrlent_ts(ne);
-		le=rr_l.prev;
-		while (le!=NIL_L && ts<get_rrlent_ts(le))
+		if((rrs && (rrs->flags&CF_NOCACHE)) || (cent->flags&DF_NOCACHE)) {
+			nocache=1;
+			le=last_nocache;
+			last=NIL_L;
+		}
+		else {
+			nocache=0;
+			le=rr_l.prev;
+			last=last_nocache;
+		}
+		while (le!=last && ts<get_rrlent_ts(le))
 			le=le->links.prev;
 
 		/* Insert the new node right after the position indicated by le, which points
@@ -1030,6 +1045,8 @@ static int insert_rrl(rr_set_t *rrs, dns_cent_t *cent, int idx)
 		ne->links.prev=le;
 		le->links.next->links.prev=ne;
 		le->links.next=ne;
+		if(nocache && le == last_nocache)
+			last_nocache=ne;
 	}
 	else {
 		/* simply append at the end, sorting will be done later with a more efficient algorithm. */
@@ -1054,6 +1071,7 @@ static void remove_rrl(rr_lent_t *le  DBGPARAM)
 	rr_lent_t *next=le->links.next, *prev=le->links.prev;
 	next->links.prev=prev;
 	prev->links.next=next;
+	if(le == last_nocache) last_nocache=prev;
 	cache_free(le);
 }
 
@@ -1148,6 +1166,14 @@ static void sort_rrl()
 			q->links.next=NIL_L;
 			rr_l.prev=q;
 		}
+		/* It is very unlikely there will be any records with the CF_NOCACHE flag
+		   set when we call sort_rrl(). In fact it will be impossible if
+		   read_disk_cache() is called before any server threads are started
+		   because write_disk_cache() purges these records before saving the cache
+		   to file.  And if there happen to be some it is not a critical failure
+		   to set last_nocache as if there are none.
+		*/
+		last_nocache=NIL_L;
 	}
 }
 
@@ -1322,7 +1348,9 @@ static dns_cent_t *move_cent(dns_cent_t *cent, dns_cent_t *dest  DBGPARAM)
 static int purge_rrset(dns_cent_t *cent, int idx, int test)
 {
 	rr_set_t *rrs= RRARR_INDEX_TESTEXT(cent,idx);
-	if (rrs && !(rrs->flags&CF_NOPURGE || rrs->flags&CF_LOCAL) && timedout(rrs)) {
+	if (rrs && ((rrs->flags&CF_NOCACHE) || !(rrs->flags&CF_NOPURGE)) &&
+	    !(rrs->flags&CF_LOCAL) && timedout(rrs))
+	{
 		/* well, it must go. */
 		if(!test)
 			cache_size -= del_cent_rrset_by_index(cent,idx  DBG0);
@@ -1347,7 +1375,9 @@ static int purge_all_rrsets(dns_cent_t *cent, int test, int *numrrsrem)
 		for(i=0; i<ilim; ++i) {
 			rr_set_t *rrs= RRARR_INDEX(cent,i);
 			if (rrs) {
-				if(!(rrs->flags&CF_NOPURGE || rrs->flags&CF_LOCAL) && timedout(rrs)) {
+				if(((rrs->flags&CF_NOCACHE) || !(rrs->flags&CF_NOPURGE)) &&
+				   !(rrs->flags&CF_LOCAL) && timedout(rrs))
+				{
 					/* well, it must go. */
 					if(!test)
 						cache_size -= del_cent_rrset_by_index(cent, i  DBG0);
@@ -1442,7 +1472,7 @@ static int purge_cent(dns_cent_t *cent, int delete, int test)
 
 /*
  * Bring cache to a size below or equal the cache size limit (sz). There are two strategies:
- * - for cached sets with CF_NOPURGE not set: delete if timed out
+ * - for cached sets with CF_NOCACHE set or CF_NOPURGE not set: delete if timed out
  * - additional: delete oldest sets.
  */
 static void purge_cache(long sz, int lazy)
@@ -1459,14 +1489,20 @@ static void purge_cache(long sz, int lazy)
 		 * If data integrity is ensured, at most one node is removed from the rr_l list
 		 * per iteration, and this node is the one referenced by le. */
 		rr_lent_t *next=le->links.next;
-		if (!((le->rrset && (le->rrset->flags&CF_LOCAL)) ||
+		rr_set_t *rrset=le->rrset;
+		if (!((rrset && (rrset->flags&CF_LOCAL)) ||
 		      (le->cent->flags&DF_LOCAL))) {
 			dns_cent_t *ce = le->cent;
-			if (le->rrset)
-				purge_rrset(ce, le->idx,0);
+			if (rrset) {
+				if(!lazy && (rrset->flags&CF_NOCACHE))
+					cache_size -= del_cent_rrset_by_index(ce, le->idx  DBG0);
+				else
+					purge_rrset(ce, le->idx, 0);
+			}
 			/* Side effect: if purge_rrset called del_cent_rrset then le has been freed.
 			 * ce, however, is still guaranteed to be valid. */
 			if (ce->num_rrs==0 && (!(ce->flags&DF_NEGATIVE) ||
+					       (!lazy && (ce->flags&DF_NOCACHE)) ||
 					       (!(ce->flags&DF_LOCAL) && timedout_nxdom(ce))))
 				del_cache_ent(ce,NULL);
 		}
@@ -1486,10 +1522,11 @@ static void purge_cache(long sz, int lazy)
 	le=rr_l.next;
 	while (le!=NIL_L && cache_size>sz) {
 		rr_lent_t *next=le->links.next;
-		if (!((le->rrset && (le->rrset->flags&CF_LOCAL)) ||
+		rr_set_t *rrset=le->rrset;
+		if (!((rrset && (rrset->flags&CF_LOCAL)) ||
 		      (le->cent->flags&DF_LOCAL))) {
 			dns_cent_t *ce = le->cent;
-			if (le->rrset)
+			if (rrset)
 				cache_size -= del_cent_rrset_by_index(ce, le->idx  DBG0);
 			/* this will also delete negative cache entries */
 			if (ce->num_rrs==0)
@@ -1951,7 +1988,7 @@ static int cr_check_add(dns_cent_t *cent, int idx, time_t ttl, time_t ts, unsign
 inline static void adjust_ttl(rr_set_t *rrset)
 {
 	if (rrset->flags&CF_NOCACHE) {
-		rrset->flags &= ~CF_NOCACHE;
+		/* rrset->flags &= ~CF_NOCACHE; */
 		rrset->ttl=0;
 	}
 	else {
@@ -1974,7 +2011,7 @@ inline static void adjust_ttl(rr_set_t *rrset)
 inline static void adjust_dom_ttl(dns_cent_t *cent)
 {
 	if (cent->flags&DF_NOCACHE) {
-		cent->flags &= ~DF_NOCACHE;
+		/* cent->flags &= ~DF_NOCACHE; */
 		cent->neg.ttl=0;
 	}
 	else {

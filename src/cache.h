@@ -83,27 +83,25 @@ typedef struct {
 /*
  * the flag values for RR sets in the cache
  */
-#define CF_NEGATIVE    1       /* this one is for per-RRset negative caching*/
+#define CF_NEGATIVE    1       /* this one is for per-RRset negative caching. */
 #define CF_LOCAL       2       /* Local zone entry */
 #define CF_AUTH        4       /* authoritative record */
-#define CF_NOCACHE     8       /* Only hold for the cache latency time period, then purge.
-				* Not really written to cache, but used by add_cache. */
-#define CF_ADDITIONAL 16       /* This was fetched as an additional or "off-topic" record. */
-#define CF_NOPURGE    32       /* Do not purge this record */
-#define CF_ROOTSERV   64       /* This record was directly obtained from a root server */
+#define CF_NOCACHE     8       /* Only hold for the cache latency time period, then purge. */
+#define CF_NOPURGE    16       /* Do not purge this record (can be overruled by CF_NOCACHE). */
+#define CF_ADDITIONAL 32       /* This was fetched as an additional or "off-topic" record. */
+#define CF_ROOTSERV   64       /* This record was directly obtained from a root server. */
 
 #define CFF_NOINHERIT (CF_LOCAL|CF_AUTH|CF_ADDITIONAL|CF_ROOTSERV) /* not to be inherited on requery */
 
 /*
  * the flag values for whole domains in the cache
  */
-#define DF_NEGATIVE    1       /* this one is for whole-domain negative caching (created on NXDOMAIN)*/
+#define DF_NEGATIVE    1       /* this one is for whole-domain negative caching (created on NXDOMAIN). */
 #define DF_LOCAL       2       /* local record (in conj. with DF_NEGATIVE) */
 #define DF_AUTH        4       /* authoritative record */
 #define DF_NOCACHE     8       /* Only hold for the cache latency time period, then purge.
-				* Only used for negatively cached domains.
-				* Not really written to cache, but used by add_cache. */
-#define DF_WILD       16       /* subdomains of this domain have wildcard records */
+				* Only used for negatively cached domains. */
+#define DF_WILD       16       /* subdomains of this domain have wildcard records. */
 
 /* #define DFF_NOINHERIT (DF_NEGATIVE) */ /* not to be inherited on requery */
 
