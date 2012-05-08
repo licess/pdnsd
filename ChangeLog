@@ -1,3 +1,12 @@
+2012-05-07  Paul A. Rombouts  <p.a.rombouts@home.nl>
+
+	* src/conff.c, src/conff.h, src/conf-parser.c, src/conf-keywords.h,
+	  src/dns_query.c
+	Added a new global configuration option: weak_cache.
+	This option can be assigned a list of RR types that will have the
+	CF_NOCACHE flag set when they are cached, and thus their cache entries
+	will only be short-lived.
+
 2012-05-06  Paul A. Rombouts  <p.a.rombouts@home.nl>
 
 	* src/cache.c, src/cache.h

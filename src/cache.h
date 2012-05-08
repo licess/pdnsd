@@ -278,6 +278,7 @@ inline static int have_rr(dns_cent_t *cent, int type)
 
 /* Some quick and dirty and hopefully fast macros. */
 #define PDNSD_NOT_CACHED_TYPE(type) ((type)<T_MIN || (type)>T_MAX || rrlkuptab[(type)-T_MIN]>=NRRTOT)
+#define ARRAY_INDEX_BY_TYPE_UNCHECKED(array,type) ((array)[rrlkuptab[(type)-T_MIN]])
 
 /* This is useful for iterating over all the RR types in a cache entry in strict ascending order. */
 #define NRRITERLIST(cent) ((cent)->flags&DF_NEGATIVE?0:(cent)->rr.rrext?NRRTOT:NRRMU)

@@ -928,6 +928,34 @@ int confparse(FILE* in, char *prestr, globparm_t *global, servparm_array *server
 	    SCAN_STRING_LIST(&global->deleg_only_zones,p,strbuf,len,zone_add)
 	    break;
 
+	  case WEAK_CACHE:
+	    for(;;) {
+	      int tp;
+	      if (!isalpha(*p)) {
+		REPORT_ERROR("Bad argument for weak_cache= option.");
+		PARSERROR;
+	      }
+	      SCAN_ALPHANUM(ps,p,len);
+	      {
+		TEMPSTRNCPY(buf,ps,len);
+		tp=rr_tp_byname(buf);
+	      }
+	      if(tp==-1) {
+		REPORT_ERRORF("unrecognized rr type '%.*s' used as argument for weak_cache= option.",(int)len,ps);
+		PARSERROR;
+	      }
+	      if(PDNSD_NOT_CACHED_TYPE(tp)) {
+		REPORT_ERRORF("non-cacheable rr type '%.*s' used as argument for weak_cache= option.",(int)len,ps);
+		PARSERROR;
+	      }
+	      ARRAY_INDEX_BY_TYPE_UNCHECKED(global->weak_cache,tp)= 1;
+	      SKIP_BLANKS(p);
+	      if(*p!=',') break;
+	      ++p;
+	      SKIP_BLANKS(p);
+	    }
+	    break;
+
 	  default: /* we should never get here */
 	    goto internal_parse_error;
 	  } /* end of switch(option) */

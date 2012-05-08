@@ -43,7 +43,7 @@
     License,  as  published by the Free Software Foundation; either version
     3, or (at your option) any later version.<br>
     You can find a copy of the GNU GPL in the file <code>COPYING</code> in the source or documentation directory.<br>
-    This manual is up-to-date for version 1.2.9b. For older documentation, please refer to the doc
+    This manual is up-to-date for version 1.2.9d. For older documentation, please refer to the doc
     directory of the respective pdnsd package.<br>
     If you want a quicker introduction to pdnsd, you can try some of the
     <a href="http://www.google.com/search?q=pdnsd+howto">HOWTOs available on the web</a>.
@@ -1313,6 +1313,18 @@
 	  <em>New in version 1.2.9:</em>
 	  This option sets the upper limit on the size of UDP DNS messages. The default is 1024.<br>
 	  See also the <code><a href="#ednsquery">edns_query</a></code> server option below.
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  <b><code>weak_cache=<i>rr_type</i>[,<i>rr_type</i>[,<i>rr_type</i>[,...]]];</code></b><br>
+	  <em>New in version 1.2.9d:</em>
+	  This option allows you to specify a list of RR types that you don't want to cache long term.
+	  This allows the remaining RR types to remain longer in the cache when the cache gets full.<br>
+	  The RR types are specified using their official names from the RFCs in capitals.
+	  The command <code><a href="#pdnsdctl">pdnsd-ctl</a>&nbsp;list-rrtypes</code> will give you
+	  a complete list of those types.<br>
+	  This option does not effect locally defined records.
 	</td>
       </tr>
     </table>
@@ -2624,7 +2636,7 @@
     Copyright&nbsp;(C)&nbsp;2003,&nbsp;2004,&nbsp;2005,&nbsp;2006,&nbsp;2007,&nbsp;2008,&nbsp;2012&nbsp;<a href="mailto:p.a.rombouts@home.nl">Paul&nbsp;A.&nbsp;Rombouts</a>
     </address>
     <p>
-      <i>Last revised: 19 April 2012 by Paul A. Rombouts</i>
+      <i>Last revised: 8 May 2012 by Paul A. Rombouts</i>
     </p>
   </body>
 </html>

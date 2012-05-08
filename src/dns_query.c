@@ -187,6 +187,11 @@ static int rr_to_cache(dns_cent_array *centa, unsigned char *oname, int tp, time
 	int i,n;
 	dns_cent_t *cent;
 
+	/* Note: unchecked array access. We are relying on the caller to check
+	   that tp represents a cache-able RR type. */
+	if(ARRAY_INDEX_BY_TYPE_UNCHECKED(global.weak_cache,tp))
+		flags |= CF_NOCACHE;
+
 	n=DA_NEL(*centa);
 	for(i=0;i<n;++i) {
 		cent=&DA_INDEX(*centa,i);

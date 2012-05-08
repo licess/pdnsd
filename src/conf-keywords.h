@@ -66,6 +66,7 @@ enum {
 	QUERY_PORT_END,
 	UDP_BUFSIZE,
 	DELEGATION_ONLY,
+	WEAK_CACHE,
 
 	IP,
 	PORT,
@@ -163,7 +164,8 @@ static const namevalue_t global_options[]= {
 	{"timeout",           TIMEOUT},
 	{"udpbufsize",        UDP_BUFSIZE},
 	{"use_nss",           USE_NSS},
-	{"verbosity",         C_VERBOSITY}
+	{"verbosity",         C_VERBOSITY},
+	{"weak_cache",        WEAK_CACHE}
 };
 
 /* Table for looking up server options. Order alphabetically! */

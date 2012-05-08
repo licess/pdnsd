@@ -156,6 +156,7 @@ typedef struct {
 	int           query_port_end;
 	int           udpbufsize;
 	zone_array    deleg_only_zones;
+	char          weak_cache[NRRTOT];
 } globparm_t;
 
 typedef struct {

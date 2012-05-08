@@ -75,7 +75,8 @@ globparm_t global={
   query_port_start:  1024,
   query_port_end:    65535,
   udpbufsize:        1024,
-  deleg_only_zones:  NULL
+  deleg_only_zones:  NULL,
+  weak_cache:        {0}
 };
 
 servparm_t serv_presets={
@@ -229,6 +230,7 @@ int reload_config_file(const char *nm, char **errstr)
 	global_new.pidfile=NULL;
 	global_new.scheme_file=NULL;
 	global_new.deleg_only_zones=NULL;
+	memset(global_new.weak_cache, 0, sizeof(global_new.weak_cache));
 	global_new.onquery=0;
 	servers_new=NULL;
 	if(read_config_file(nm,&global_new,&servers_new,0,errstr)) {
@@ -453,6 +455,17 @@ int report_conf_stat(int f)
 	  {fsprintf_or_return(f,"\tTCP query timeout: %li\n",(long)global.tcp_qtimeout);}
 #endif
 	fsprintf_or_return(f,"\tMaximum udp buffer size: %i\n",global.udpbufsize);
+
+	fsprintf_or_return(f,"\tWeakly cached RR types: ");
+	{
+		int cnt=0;
+		for(i=0; i<NRRTOT; ++i) {
+			int tp=rrcachiterlist[i];
+			if(ARRAY_INDEX_BY_TYPE_UNCHECKED(global.weak_cache,tp))
+				fsprintf_or_return(f, cnt++==0?"%s":", %s", rrnames[tp-T_MIN]);
+		}
+		fsprintf_or_return(f, cnt==0?"(none)\n":"\n");
+	}
 
 	lock_server_data();
 	{

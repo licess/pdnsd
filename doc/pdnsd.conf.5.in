@@ -12,7 +12,7 @@
 .\" You can find a copy of the GNU GPL in the file COPYING in the source
 .\" or documentation directory.
 .\" 
-.TH PDNSD.CONF 5 "Apr 2012" "pdnsd @fullversion@"
+.TH PDNSD.CONF 5 "May 2012" "pdnsd @fullversion@"
 .SH NAME
 pdnsd.conf \- The configuration file for pdnsd
 .hw config
@@ -494,6 +494,17 @@ On by default.
 This option sets the upper limit on the size of UDP DNS messages. The default is 1024.
 .br
 See also the edns_query server option below.
+.TP
+.B weak_cache=\fIrr_type\fP[,\fIrr_type\fP[,\fIrr_type\fP[,...]]];
+\fINew in version 1.2.9d:\fP
+This option allows you to specify a list of RR types that you don't want to cache long term.
+This allows the remaining RR types to remain longer in the cache when the cache gets full.
+.br
+The RR types are specified using their official names from the RFCs in capitals.
+The command pdnsd\-ctl\ list\-rrtypes will give you
+a complete list of those types.
+.br
+This option does not effect locally defined records.
 
 .SS server Section
 Each server section specifies a set of name servers that pdnsd should try to get
@@ -1325,4 +1336,4 @@ Several others have contributed to \fBpdnsd\fP; see files in the source or
 This man page was automatically generated from the html documentation for \fBpdnsd\fP,
 using a customized Perl script written by Paul A. Rombouts.
 .PP
-Last revised: 19 April 2012 by Paul A. Rombouts
+Last revised: 8 May 2012 by Paul A. Rombouts

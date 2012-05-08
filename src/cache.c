@@ -2129,8 +2129,6 @@ void merge_cache(dns_cent_t *cent, int merge)
 									    (cerrs->flags&CF_ROOTSERV))) &&
 					!timedout(cerrs)))))
 				{
-					rr_bucket_t *rr,*rtail;
-
 					del_cent_rrset_by_index(ce,i  DBG0);
 
 					if (!cr_check_add(ce, i, centrrs->ttl, centrrs->ts, centrrs->flags))
