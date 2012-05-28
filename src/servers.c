@@ -227,10 +227,9 @@ static int scheme_ok(servparm_t *serv)
 /* Internal server test. Call with locks applied.
    May test a single server ip or several collectively.
  */
-static void retest(int i, int j)
+static void retest(servparm_t *srv, int j)
 {
   time_t s_ts;
-  servparm_t *srv=&DA_INDEX(servers,i);
   int nsrvs=DA_NEL(srv->atup_a);
 
   if(!nsrvs) return;
@@ -339,13 +338,12 @@ void *servstat_thread(void *p)
 
 	for(;;) {
 		do {
-			int i,n;
+			int i;
+			servparm_t *sp;
 			keep_testing=0;
 			retest_flag=0;
 			schm[0] = '\0';
-			n=DA_NEL(servers);
-			for (i=0;i<n;++i) {
-				servparm_t *sp=&DA_INDEX(servers,i);
+			for (i=0,sp=llist_first(&servers); sp; ++i,sp=llist_next(sp)) {
 				int j,m;
 				if(sp->rootserver==2) {
 					/* First get addresses of root servers. */
@@ -373,7 +371,7 @@ void *servstat_thread(void *p)
 						}
 					}
 					else {
-						retest(i,-1);
+						retest(sp,-1);
 
 						m=DA_NEL(sp->atup_a);
 						for(j=0;j<m;++j) {
@@ -442,7 +440,7 @@ void *servstat_thread(void *p)
 					if(DA_INDEX(sp->atup_a,j).i_ts)
 						goto individual_tests;
 				/* Test collectively */
-				if(!signal_interrupt) retest(i,-1);
+				if(!signal_interrupt) retest(sp,-1);
 				continue;
 
 			individual_tests:
@@ -454,7 +452,7 @@ void *servstat_thread(void *p)
 					     ((now=time(NULL))-ts>sp->interval ||
 					      ts>now /* kluge for clock skew */)))
 					{
-						retest(i,j);
+						retest(sp,j);
 					}
 				}
 			}
@@ -469,13 +467,12 @@ void *servstat_thread(void *p)
 			struct timeval now;
 			struct timespec timeout;
 			time_t minwait;
-			int i,n,retval;
+			int retval;
+			servparm_t *sp;
 
 			gettimeofday(&now,NULL);
 			minwait=3600; /* Check at least once every hour. */
-			n=DA_NEL(servers);
-			for (i=0;i<n;++i) {
-				servparm_t *sp=&DA_INDEX(servers,i);
+			for (sp=llist_first(&servers); sp; sp=llist_next(sp)) {
 				int j,m=DA_NEL(sp->atup_a);
 				for(j=0;j<m;++j) {
 					time_t ts= DA_INDEX(sp->atup_a,j).i_ts;
@@ -548,9 +545,8 @@ void sched_server_test(pdnsd_a *sa, int nadr, int up)
 	   and anything else would introduce considerable overhead */
 	for(k=0;k<nadr;++k) {
 		pdnsd_a *sak= &sa[k];
-		int i,n=DA_NEL(servers);
-		for(i=0;i<n;++i) {
-			servparm_t *sp=&DA_INDEX(servers,i);
+		servparm_t *sp;
+		for (sp=llist_first(&servers); sp; sp=llist_next(sp)) {
 			int j,m=DA_NEL(sp->atup_a);
 			for(j=0;j<m;++j) {
 				atup_t *at=&DA_INDEX(sp->atup_a,j);
@@ -579,31 +575,22 @@ void sched_server_test(pdnsd_a *sa, int nadr, int up)
 }
 
 /* Mark a set of servers up or down or schedule uptests.
- * If i>=0 only the server section with index i is scanned,
- * if i<0 all sections are scanned.
+ * If st is not null only the server section referenced by it is scanned,
+ * otherwise all sections are scanned.
  * Only sections matching label are actually set. A NULL label matches
  * any section.
  * up=1 or up=0 means mark server up or down, up=-1 means retest.
  *
  * A non-zero return value indicates an error.
  */
-int mark_servers(int i, char *label, int up)
+int mark_servers(servparm_t *st, char *label, int up)
 {
-	int retval=0,n,signal_test;
-
+	int retval=0,signal_test;
+	servparm_t *sp;
 	pthread_mutex_lock(&servers_lock);
 
 	signal_test=0;
-	n=DA_NEL(servers);
-	if(i>=0) {
-		/* just one section */
-		if(i<n) n=i+1;
-	}
-	else {
-		i=0; /* scan all sections */
-	}
-	for(;i<n;++i) {
-		servparm_t *sp=&DA_INDEX(servers,i);
+	for(sp=(st?st:llist_first(&servers)); sp; sp=llist_next(sp)) {
 		if(!label || (sp->label && !strcmp(sp->label,label))) {
 			int j,m=DA_NEL(sp->atup_a);
 
@@ -627,6 +614,7 @@ int mark_servers(int i, char *label, int up)
 				}
 			}
 		}
+		if(st) break;  /* Just one section. */
 	}
 	if(signal_test) {
 		if(pthread_equal(servstat_thrid,main_thrid))
@@ -646,17 +634,16 @@ int mark_servers(int i, char *label, int up)
  */
 void test_onquery()
 {
-	int i,n,signal_test;
+	int signal_test;
+	servparm_t *sp;
 
 	pthread_mutex_lock(&servers_lock);
 	schm[0] = '\0';
 	signal_test=0;
-	n=DA_NEL(servers);
-	for (i=0;i<n;++i) {
-		servparm_t *sp=&DA_INDEX(servers,i);
+	for (sp=llist_first(&servers); sp; sp=llist_next(sp)) {
 		if (sp->interval==-1) {
 			if(sp->rootserver<=1)
-				retest(i,-1);
+				retest(sp,-1);
 			else {
 				/* We leave root-server discovery to the server status thread */
 				int j,m=DA_NEL(sp->atup_a);
@@ -743,25 +730,24 @@ void exclusive_unlock_server_data(int retest)
 
 /*
   Change addresses of servers during runtime.
-  i is the number of the server section to change.
+  i is the number of the server section to change (for debugging messages only).
+  sp refers to the server section to change.
   ar should point to an array of IP addresses (may be NULL).
   up=1 or up=0 means mark server up or down afterwards,
   up=-1 means retest.
 
   A non-zero return value indicates an error.
 */
-int change_servers(int i, addr_array ar, int up)
+int change_servers(int i, servparm_t *sp, addr_array ar, int up)
 {
 	int retval=0,j,change,signal_test;
 	int n;
-	servparm_t *sp;
 
 	pthread_mutex_lock(&servers_lock);
 
 	signal_test=0;
 	change=0;
 	n=DA_NEL(ar);
-	sp=&DA_INDEX(servers,i);
 	if(n != DA_NEL(sp->atup_a) || sp->rootserver>1)
 		change=1;
 	else {

@@ -114,7 +114,6 @@ typedef struct {
 	pkt_info_t         pi;
 
 	int                sock;
-	int                proto;
 	size_t             len;
 	unsigned char      buf[0];  /* Actual size determined by global.udpbufsize */
 } udp_buf_t;

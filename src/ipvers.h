@@ -256,8 +256,8 @@ typedef struct {
    and vice versa.
 */
 #ifdef ENABLE_IPV6
-inline static void SET_PDNSD_A2(pdnsd_a2 *a2, pdnsd_a *a) __attribute__((always_inline));
-inline static void SET_PDNSD_A2(pdnsd_a2 *a2, pdnsd_a *a)
+inline __attribute__((always_inline))
+static void SET_PDNSD_A2(pdnsd_a2 *a2, pdnsd_a *a)
 {
 #ifdef ENABLE_IPV4
 	if(run_ipv4)

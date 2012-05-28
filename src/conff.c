@@ -112,34 +112,34 @@ servparm_t serv_presets={
   ping_a:            PDNSD_A_INITIALIZER
 };
 
-servparm_array servers=NULL;
+llist servers;
 
 static void free_zones(zone_array za);
-static void free_server_data(servparm_array sa);
-static int report_server_stat(int f,int i);
+static void free_server_data(llist *sl);
+static int report_server_stat(int f, int i, servparm_t *st);
 
 
 /*
- * Read a configuration file, saving the results in a (separate) global section and servers array,
+ * Read a configuration file, saving the results in a (separate) global section and servers list,
  * and the cache.
  *
  * char *nm should contain the name of the file to read. If it is NULL, the name of the config file
- *          read during startup is used.
+ *	    read during startup is used.
  *
  * globparm_t *global should point to a struct which will be used to store the data of the
- *                    global section(s). If it is NULL, no global sections are allowed in the
+ *		      global section(s). If it is NULL, no global sections are allowed in the
  *		      file.
  *
- * servparm_array *servers should point to a dynamic array which will be grown to store the data
- *                         of the server sections. If it is NULL, no server sections are allowed
- *			   in the file.
+ * llist *servers should point to a linked list which will be grown to store the data
+ *		  of the server sections. If it is NULL, no server sections are allowed
+ *		  in the file.
  *
  * char **errstr is used to return a possible error message.
- *               In case of failure, *errstr will refer to a newly allocated string.
+ *		 In case of failure, *errstr will refer to a newly allocated string.
  *
  * read_config_file returns 1 on success, 0 on failure.
  */
-int read_config_file(const char *nm, globparm_t *global, servparm_array *servers, int includedepth, char **errstr)
+int read_config_file(const char *nm, globparm_t *global, llist *servers, int includedepth, char **errstr)
 {
 	int retval=0;
 	const char *conftype= (global?"config":"include");
@@ -206,7 +206,7 @@ close_file:
 			*errstr=NULL;
 		return 0;
 	}
-	if(retval && servers && !DA_NEL(*servers)) {
+	if(retval && servers && llist_isempty(servers)) {
 		if(asprintf(errstr,"Error: no server sections defined in config file %s",nm)<0)
 			*errstr=NULL;
 		return 0;
@@ -223,7 +223,7 @@ close_file:
 int reload_config_file(const char *nm, char **errstr)
 {
 	globparm_t global_new;
-	servparm_array servers_new;
+	llist servers_new;
 
 	global_new=global;
 	global_new.cache_dir=NULL;
@@ -232,7 +232,7 @@ int reload_config_file(const char *nm, char **errstr)
 	global_new.deleg_only_zones=NULL;
 	memset(global_new.weak_cache, 0, sizeof(global_new.weak_cache));
 	global_new.onquery=0;
-	servers_new=NULL;
+	llist_init(&servers_new);
 	if(read_config_file(nm,&global_new,&servers_new,0,errstr)) {
 		if(global_new.cache_dir && strcmp(global_new.cache_dir,global.cache_dir)) {
 			*errstr=strdup("Cannot reload config file: the specified cache_dir directory has changed.\n"
@@ -306,9 +306,10 @@ int reload_config_file(const char *nm, char **errstr)
 		   && ping6_isocket==-1
 #endif
 		  ) {
-			int i,n=DA_NEL(servers_new);
-			for (i=0;i<n;++i) {
-				if (DA_INDEX(servers_new,i).uptest==C_PING) {
+			int i;
+			servparm_t *sp;
+			for (i=0,sp=llist_first(&servers_new); sp; ++i,sp=llist_next(sp)) {
+				if (sp->uptest==C_PING) {
 					if(asprintf(errstr,"Cannot reload config file: the ping socket is not initialized"
 						    " and the new config contains uptest=ping in server section %i.\n"
 						    "Try restarting pdnsd instead.",i)<0)
@@ -330,8 +331,9 @@ int reload_config_file(const char *nm, char **errstr)
 		free_zones(global.deleg_only_zones);
 		global=global_new;
 
-		free_server_data(servers);
-		servers=servers_new;
+		free_server_data(&servers);
+		servers=servers_new; /* The list is not empty because read_config_file checks this.
+					Simple assignment of an empty list is dangerous! */
 		/* schedule a retest to check which servers are up,
 		   and free the lock. */
 		exclusive_unlock_server_data(1);
@@ -344,7 +346,7 @@ int reload_config_file(const char *nm, char **errstr)
 	free(global_new.pidfile);
 	free(global_new.scheme_file);
 	free_zones(global_new.deleg_only_zones);
-	free_server_data(servers_new);
+	free_server_data(&servers_new);
 	return 0;
 }
 
@@ -389,12 +391,9 @@ void free_servparm(servparm_t *serv)
 #endif
 }
 
-static void free_server_data(servparm_array sa)
+static void free_server_data(llist *sl)
 {
-	int i,n=DA_NEL(sa);
-	for(i=0;i<n;++i)
-		free_servparm(&DA_INDEX(sa,i));
-	da_free(sa);
+	llist_free_cl(sl, (void(*)(void*))free_servparm);
 }
 
 /* Report the current configuration to the file descriptor f (for the status fifo, see status.c) */
@@ -489,10 +488,12 @@ int report_conf_stat(int f)
 		if(rv<0) {retval=rv; goto unlock_return;}
 	}
 
-	n=DA_NEL(servers);
-	for(i=0;i<n;++i) {
-		int rv=report_server_stat(f,i);
-		if(rv<0) {retval=rv; goto unlock_return;}
+	{
+		servparm_t *sp;
+		for (i=0,sp=llist_first(&servers); sp; ++i,sp=llist_next(sp)) {
+			int rv=report_server_stat(f,i,sp);
+			if(rv<0) {retval=rv; goto unlock_return;}
+		}
 	}
  unlock_return:
 	unlock_server_data();
@@ -511,9 +512,8 @@ int report_conf_stat(int f)
 /* Report the current status of server i to the file descriptor f.
    Call with locks applied.
 */
-static int report_server_stat(int f,int i)
+static int report_server_stat(int f, int i, servparm_t *st)
 {
-	servparm_t *st=&DA_INDEX(servers,i);
 	int j,m;
 
 	fsprintf_or_return(f,"Server %i:\n------\n",i);

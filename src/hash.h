@@ -57,8 +57,8 @@ typedef struct {
 	dns_hash_ent_t *ent;       /* entry */
 } dns_hash_pos_t;
 
-inline static void mk_dns_hash()  __attribute__((always_inline));
-inline static void mk_dns_hash()
+inline __attribute__((always_inline))
+static void mk_dns_hash()
 {
 	int i;
 	for(i=0;i<HASH_NUM_BUCKETS;i++)

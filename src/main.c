@@ -413,6 +413,7 @@ int main(int argc,char *argv[])
 		}
 	}
 
+	llist_init(&servers);
 	init_cache();
 	{
 		char *errmsg;
@@ -442,8 +443,8 @@ int main(int argc,char *argv[])
 	stat_pipe=global.stat_pipe;
 
 	if (!(global.run_as[0] && global.strict_suid)) {
-		for (i=0; i<DA_NEL(servers); i++) {
-			servparm_t *sp=&DA_INDEX(servers,i);
+		servparm_t *sp;
+		for (sp=llist_first(&servers); sp; sp=llist_next(sp)) {
 			if (sp->uptest==C_EXEC && sp->uptest_usr[0]=='\0') {
 				uid_t uid=getuid();
 				struct passwd *pws=getpwuid(uid);
@@ -482,10 +483,13 @@ int main(int argc,char *argv[])
 			exit(1);
 		}
 	}
-	for (i=0;i<DA_NEL(servers);i++) {
-		if (DA_INDEX(servers,i).uptest==C_PING) {
-			init_ping_socket();
-			break;
+	{
+		servparm_t *sp;
+		for (sp=llist_first(&servers); sp; sp=llist_next(sp)) {
+			if (sp->uptest==C_PING) {
+				init_ping_socket();
+				break;
+			}
 		}
 	}
 

@@ -215,6 +215,7 @@ static void *status_thread (void *p)
 					break;
 				case CTL_SERVER: {
 					char *label,*dnsaddr;
+					servparm_t *st;
 					int indx;
 					uint16_t cmd2;
 					DEBUG_MSG("Received SERVER command.\n");
@@ -239,13 +240,24 @@ static void *status_thread (void *p)
 					   it should be OK to read the server config without locks, but it is
 					   something to keep in mind.
 					*/
+					st=NULL;
 					{
 					    char *endptr;
 					    indx=strtol(label,&endptr,0);
 					    if(!*endptr) {
-						if (indx<0 || indx>=DA_NEL(servers)) {
-						    print_serr(rs,"Server index out of range.");
-						    goto free_dnsaddr_label_break;
+						if (indx>=0) {
+						    int i=indx;
+						    st=llist_first(&servers);
+						    while(i>0) {
+							if(!st) goto index_out_of_range;
+							st=llist_next(st);
+							--i;
+						    }
+						}
+						else {
+						index_out_of_range:
+						      print_serr(rs,"Server index out of range.");
+						      goto free_dnsaddr_label_break;
 						}
 					    }
 					    else {
@@ -258,9 +270,9 @@ static void *status_thread (void *p)
 					if(cmd2==CTL_S_UP || cmd2==CTL_S_DOWN || cmd2==CTL_S_RETEST) {
 					    if(!dnsaddr) {
 						if (indx==-1) {
-						    int i;
-						    for (i=0;i<DA_NEL(servers);++i) {
-							char *servlabel=DA_INDEX(servers,i).label;
+						    servparm_t *sp;
+						    for (sp=llist_first(&servers); sp; sp=llist_next(sp)) {
+							char *servlabel=sp->label;
 							if (servlabel && !strcmp(servlabel,label))
 							    goto found_label;
 						    }
@@ -268,7 +280,7 @@ static void *status_thread (void *p)
 						    goto free_dnsaddr_label_break;
 						found_label:;
 						}
-						if(mark_servers(indx,(indx==-1)?label:NULL,(cmd2==CTL_S_RETEST)?-1:(cmd2==CTL_S_UP))==0)
+						if(mark_servers(st,(indx==-1)?label:NULL,(cmd2==CTL_S_RETEST)?-1:(cmd2==CTL_S_UP))==0)
 						    print_succ(rs);
 						else
 						    print_serr(rs,"Could not start up or signal server status thread.");
@@ -280,17 +292,18 @@ static void *status_thread (void *p)
 						}
 						if(indx==-1) {
 						    int i;
-						    for(i=0;i<DA_NEL(servers);++i) {
-							char *servlabel=DA_INDEX(servers,i).label;
+						    servparm_t *sp;
+						    for (i=0,sp=llist_first(&servers); sp; ++i,sp=llist_next(sp)) {
+							char *servlabel=sp->label;
 							if (servlabel && !strcmp(servlabel,label)) {
-							    if(indx!=-1) {
+							    if(st) {
 								print_serr(rs,"server label must be unique to change server addresses.");
 								goto free_dnsaddr_label_break;
 							    }
-							    indx=i;
+							    indx=i; st=sp;
 							}
 						    }
-						    if(indx==-1) {
+						    if(!st) {
 							print_serr(rs,"Bad server label.");
 							goto free_dnsaddr_label_break;
 						    }
@@ -323,7 +336,7 @@ static void *status_thread (void *p)
 							DA_LAST(ar)=addr;
 						    }
 						change_servs:
-						    err=change_servers(indx,ar,(cmd2==CTL_S_RETEST)?-1:(cmd2==CTL_S_UP));
+						    err=change_servers(indx,st,ar,(cmd2==CTL_S_RETEST)?-1:(cmd2==CTL_S_UP));
 						    if(err==0)
 							print_succ(rs);
 						    else

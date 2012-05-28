@@ -54,9 +54,8 @@ typedef struct {size_t nel;} *darray;
 darray da_grow1(darray a, size_t headsz, size_t elemsz, void (*cleanuproutine) (void *));
 darray da_resize(darray a, size_t headsz, size_t elemsz, size_t n, void (*cleanuproutine) (void *));
 
-inline static unsigned int da_nel(darray a)
-  __attribute__((always_inline));
-inline static unsigned int da_nel(darray a)
+inline __attribute__((always_inline))
+static unsigned int da_nel(darray a)
 {
   if (a==NULL)
     return 0;
@@ -82,9 +81,8 @@ struct _dynamic_list_head {
 
 typedef struct _dynamic_list_head  *dlist;
 
-inline static void *dlist_first(dlist a)
-  __attribute__((always_inline));
-inline static void *dlist_first(dlist a)
+inline __attribute__((always_inline))
+static void *dlist_first(dlist a)
 {
   return a?&a->data[sizeof(size_t)]:NULL;
 }
@@ -93,18 +91,16 @@ inline static void *dlist_first(dlist a)
    ref should be properly aligned.
    If the dlist was grown with dlist_grow(), this should be OK.
 */
-inline static void *dlist_next(void *ref)
-  __attribute__((always_inline));
-inline static void *dlist_next(void *ref)
+inline __attribute__((always_inline))
+static void *dlist_next(void *ref)
 {
   size_t incr= *(((size_t *)ref)-1);
   return incr?((char *)ref)+incr:NULL;
 }
 
 /* dlist_last() returns a reference to the last item. */
-inline static void *dlist_last(dlist a)
-  __attribute__((always_inline));
-inline static void *dlist_last(dlist a)
+inline __attribute__((always_inline))
+static void *dlist_last(dlist a)
 {
   return a?&a->data[a->last+sizeof(size_t)]:NULL;
 }
@@ -121,50 +117,49 @@ struct llistnode_s {
 };
 
 typedef struct {
-  struct llistnode_s *first, *last;
+  struct llistnode_s *first, **last;
 }
   llist;
 
-inline static void llist_init(llist *a)
-  __attribute__((always_inline));
-inline static void llist_init(llist *a)
+inline __attribute__((always_inline))
+static void llist_init(llist *a)
 {
   a->first=NULL;
-  a->last= NULL;
+  a->last= &a->first;
 }
 
-inline static int llist_isempty(llist *a)
-  __attribute__((always_inline));
-inline static int llist_isempty(llist *a)
+inline __attribute__((always_inline))
+static int llist_isempty(llist *a)
 {
   return a->first==NULL;
 }
 
-inline static void *llist_first(llist *a)
-  __attribute__((always_inline));
-inline static void *llist_first(llist *a)
+inline __attribute__((always_inline))
+static void *llist_first(llist *a)
 {
   struct llistnode_s *p= a->first;
   return p?p->data:NULL;
 }
 
-inline static void *llist_next(void *ref)
-  __attribute__((always_inline));
-inline static void *llist_next(void *ref)
+inline __attribute__((always_inline))
+static void *llist_next(void *ref)
 {
   struct llistnode_s *next= *(((struct llistnode_s **)ref)-1);
   return next?next->data:NULL;
 }
 
-inline static void *llist_last(llist *a)
-  __attribute__((always_inline));
-inline static void *llist_last(llist *a)
+inline __attribute__((always_inline))
+static void *llist_last(llist *a)
 {
-  struct llistnode_s *p= a->last;
-  return p?p->data:NULL;
+  return a->first?((struct llistnode_s *)(a->last))->data:NULL;
 }
 
-int llist_grow(llist *a, size_t len);
-void llist_free(llist *a);
+int llist_grow_cl(llist *a, size_t len, void (*cleanuproutine) (void *));
+inline __attribute__((always_inline))
+static int llist_grow(llist *a, size_t len) {return llist_grow_cl(a,len,NULL);}
+
+void llist_free_cl(llist *a, void (*cleanuproutine) (void *));
+inline __attribute__((always_inline))
+static void llist_free(llist *a) {llist_free_cl(a,NULL);}
 
 #endif /* def LIST_H */

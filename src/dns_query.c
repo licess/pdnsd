@@ -3198,16 +3198,15 @@ addr2_array dns_rootserver_resolv(atup_array atup_a, int port, char edns_query, 
 static int p_dns_resolve(const unsigned char *name, int thint, dns_cent_t **cachedp, int hops, qhintnode_t *qhlist,
 			 unsigned char *c_soa)
 {
-	int i,n,rc;
+	int rc;
 	int one_up=0,seenrootserv=0;
 	query_stat_array serv=NULL;
 	rejectlist_t *rejectlist=NULL;
+	servparm_t *sp;
 
 	/* try the servers in the order of their definition */
 	lock_server_data();
-	n=DA_NEL(servers);
-	for (i=0;i<n;++i) {
-		servparm_t *sp=&DA_INDEX(servers,i);
+	for (sp=llist_first(&servers); sp; sp=llist_next(sp)) {
 		if(sp->rootserver<=1 && use_server(sp,name)) {
 			int m=DA_NEL(sp->atup_a);
 			if(m>0) {
@@ -3487,11 +3486,10 @@ static int p_dns_cached_resolve(query_stat_array q, const unsigned char *name, i
 	/* update server records set onquery */
 	if(global.onquery) test_onquery();
 	if (global.lndown_kluge && !(flags&CF_LOCAL)) {
-		int i,n,linkdown=1;
+		int linkdown=1;
+		servparm_t *sp;
 		lock_server_data();
-		n=DA_NEL(servers);
-		for(i=0;i<n;++i) {
-			servparm_t *sp=&DA_INDEX(servers,i);
+		for (sp=llist_first(&servers); sp; sp=llist_next(sp)) {
 			if(sp->rootserver<=1) {
 				int j,m=DA_NEL(sp->atup_a);
 				for(j=0;j<m;++j) {

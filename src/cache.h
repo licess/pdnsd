@@ -151,8 +151,8 @@ extern volatile short int use_cache_lock;
 #define init_cache mk_dns_hash
 
 /* Initialize the cache lock. Call only once. */
-inline static void init_cache_lock()  __attribute__((always_inline));
-inline static void init_cache_lock()
+inline __attribute__((always_inline))
+static void init_cache_lock()
 {
 	use_cache_lock=1;
 }
@@ -183,9 +183,8 @@ rr_set_t *lookup_cache_local_rrset(const unsigned char *name, int type);
 int add_cache_rr_add(const unsigned char *name, int tp, time_t ttl, time_t ts, unsigned flags, unsigned dlen, void *data, unsigned long serial);
 #endif
 
-inline static unsigned int mk_flag_val(servparm_t *server)
-  __attribute__((always_inline));
-inline static unsigned int mk_flag_val(servparm_t *server)
+inline __attribute__((always_inline))
+static unsigned int mk_flag_val(servparm_t *server)
 {
 	unsigned int fl=0;
 	if (!server->purge_cache)
@@ -215,9 +214,8 @@ unsigned long get_serial(void);
 #endif
 
 /* Get pointer to rrset given cache entry and rr type value. */
-inline static rr_set_t *getrrset(dns_cent_t *cent, int type)
-  __attribute__((always_inline));
-inline static rr_set_t *getrrset(dns_cent_t *cent, int type)
+inline __attribute__((always_inline))
+static rr_set_t *getrrset(dns_cent_t *cent, int type)
 {
 	if(!(cent->flags&DF_NEGATIVE)) {
 		int tpi= type - T_MIN;
@@ -245,9 +243,8 @@ inline static rr_set_t *getrrset(dns_cent_t *cent, int type)
    It is safe to use if T_MIN <= type <= T_MAX and cent
    is not negative.
 */
-inline static rr_set_t *getrrset_eff(dns_cent_t *cent, int type)
-  __attribute__((always_inline));
-inline static rr_set_t *getrrset_eff(dns_cent_t *cent, int type)
+inline __attribute__((always_inline))
+static rr_set_t *getrrset_eff(dns_cent_t *cent, int type)
 {
 	unsigned int idx = rrlkuptab[type-T_MIN];
 	if(idx < NRRMU)
@@ -268,9 +265,8 @@ inline static rr_set_t *getrrset_eff(dns_cent_t *cent, int type)
 /* have_rr() tests whether a cache entry has at least one record of a given type.
    Only use if T_MIN <= type <=T_MAX
 */
-inline static int have_rr(dns_cent_t *cent, int type)
-  __attribute__((always_inline));
-inline static int have_rr(dns_cent_t *cent, int type)
+inline __attribute__((always_inline))
+static int have_rr(dns_cent_t *cent, int type)
 {
 	rr_set_t *rrset;
 	return !(cent->flags&DF_NEGATIVE) && (rrset=getrrset_eff(cent, type)) && rrset->rrs;

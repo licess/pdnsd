@@ -462,7 +462,7 @@ static const char *zone_add(zone_array *za, const char *zone, unsigned int len);
 }
 
 
-/* Parse a configuration file, adding data to a (separate) global section and servers array,
+/* Parse a configuration file, adding data to a (separate) global section and servers list,
    and the cache.
 
    FILE *in should point to the input stream. It may be NULL, in which case no file is read.
@@ -470,22 +470,22 @@ static const char *zone_add(zone_array *za, const char *zone, unsigned int len);
    char *prestr may be NULL or point to a string which will be parsed before the input file.
 
    globparm_t *global should point to a struct which will be used to store the data of the
-                      global section(s). If it is NULL, no global sections are allowed in the
+		      global section(s). If it is NULL, no global sections are allowed in the
 		      input.
 
-   servparm_array *servers should point to a dynamic array which will be grown to store the data
-                           of the server sections. If it is NULL, no server sections are allowed
-			   in the input.
+   llist *servers should point to a linked list which will be grown to store the data
+		  of the server sections. If it is NULL, no server sections are allowed
+		  in the input.
 
    int includedepth is used to track how deeply recursive calls of confparse are nested.
-                    Should be 0 for a top-level call.
+		    Should be 0 for a top-level call.
 
    char **errstr is used to return a possible error message.
-                 In case of failure, *errstr will refer to a newly allocated string.
+		 In case of failure, *errstr will refer to a newly allocated string.
 
    confparse returns 1 on success, 0 on failure.
 */
-int confparse(FILE* in, char *prestr, globparm_t *global, servparm_array *servers, int includedepth, char **errstr)
+int confparse(FILE* in, char *prestr, globparm_t *global, llist *servers, int includedepth, char **errstr)
 {
   char *linebuf=NULL,*p,*ps,*getnextperr=NULL,*scanstrerr=NULL;
   const char *conftype;
@@ -1250,10 +1250,10 @@ int confparse(FILE* in, char *prestr, globparm_t *global, servparm_array *server
 	}
 	if(server.interval==-1) global->onquery=1;
 
-	if (!(*servers=DA_GROW1_F(*servers,(void(*)(void*))free_servparm))) {
+	if (!llist_grow_cl(servers,sizeof(servparm_t),(void(*)(void*))free_servparm)) {
 	  OUTOFMEMERROR;
 	}
-	DA_LAST(*servers)= server;
+	*((servparm_t*) llist_last(servers))= server;
 #	undef  CLEANUP_HANDLER
 #	define CLEANUP_HANDLER
       }
@@ -1293,7 +1293,7 @@ int confparse(FILE* in, char *prestr, globparm_t *global, servparm_array *server
 	    SCAN_STRING(p,strbuf,len);
 	    PARSESTR2RHN(ucharp strbuf,len,c_name);
 	    if (!init_cent(&c_cent, c_name, 0, 0, c_flags  DBG0))
-	      goto out_of_memory;
+	      {OUTOFMEMERROR;}
 	  }
 	    break;
 
@@ -1713,7 +1713,7 @@ int confparse(FILE* in, char *prestr, globparm_t *global, servparm_array *server
 		}
 		hdtp=1;
 		if (!init_cent(&c_cent, c_name, c_ttl, 0, DF_LOCAL|DF_NEGATIVE  DBG0))
-		  goto out_of_memory;
+		  {OUTOFMEMERROR;}
 	      }
 	      else if(cnst==0) {
 		if (hdtp) {
@@ -1722,7 +1722,7 @@ int confparse(FILE* in, char *prestr, globparm_t *global, servparm_array *server
 		}
 		htp=1;
 		if (!init_cent(&c_cent, c_name, 0, 0, 0  DBG0))
-		  goto out_of_memory;
+		  {OUTOFMEMERROR;}
 #		undef  CLEANUP_HANDLER
 #		define CLEANUP_HANDLER (free_cent(&c_cent DBG0))
 		for(;;) {

@@ -108,9 +108,8 @@ void thread_sig(int sig);
 /* This is a thread-safe usleep().
    Implementation of the BSD usleep function using nanosleep.
 */
-inline static int usleep_r(unsigned long useconds)
-  __attribute__((always_inline));
-inline static int usleep_r(unsigned long useconds)
+inline __attribute__((always_inline))
+static int usleep_r(unsigned long useconds)
 {
   struct timespec ts = { tv_sec: (useconds / 1000000),
 			 tv_nsec: (useconds % 1000000) * 1000ul };
@@ -122,9 +121,8 @@ inline static int usleep_r(unsigned long useconds)
    The semantics are somewhat different from the POSIX sleep function,
    but it suits our purposes.
 */
-inline static int sleep_r (unsigned int seconds)
-  __attribute__((always_inline));
-inline static int sleep_r (unsigned int seconds)
+inline __attribute__((always_inline))
+static int sleep_r (unsigned int seconds)
 {
   struct timespec ts = { tv_sec: seconds, tv_nsec: 0 };
 

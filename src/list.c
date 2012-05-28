@@ -135,37 +135,35 @@ dlist dlist_grow(dlist a, size_t len)
    llist_grow() returns 1 if successful, otherwise it frees the entire linked list
    and returns 0.
  */
-int llist_grow(llist *a, size_t len)
+int llist_grow_cl(llist *a, size_t len, void (*cleanuproutine) (void *))
 {
   struct llistnode_s *new= (struct llistnode_s *)malloc(sizeof(struct llistnode_s)+len);
 
   if(!new) {
-    llist_free(a);
+    llist_free_cl(a,cleanuproutine);
     return 0;
   }
 
   new->next=NULL;
 
-  if(!a->first)
-    a->first=new;
-  else
-    a->last->next=new;
+  *(a->last)= new;
 
-  a->last=new;
+  a->last= &new->next;
 
   return 1;
 }
 
-void llist_free(llist *a)
+void llist_free_cl(llist *a, void (*cleanuproutine) (void *))
 {
   struct llistnode_s *p= a->first;
 
   while(p) {
     struct llistnode_s *next= p->next;
+    if(cleanuproutine) cleanuproutine(p->data);
     free(p);
     p=next;
   }
 
   a->first=NULL;
-  a->last= NULL;
+  a->last= &a->first;
 }

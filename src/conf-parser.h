@@ -24,6 +24,6 @@
 #ifndef CONF_PARSER_H
 #define CONF_PARSER_H
 
-int confparse(FILE* in, char *prestr, globparm_t *global, servparm_array *servers, int includedepth, char **errstr);
+int confparse(FILE* in, char *prestr, globparm_t *global, llist *servers, int includedepth, char **errstr);
 
 #endif /* CONF_PARSER_H */

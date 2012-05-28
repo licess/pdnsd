@@ -1,3 +1,16 @@
+2012-05-24  Paul A. Rombouts  <p.a.rombouts@home.nl>
+
+	* src/dns_answer.c
+	Removed unused 'proto' field from udp_buf_t struct.
+
+2012-05-22  Paul A. Rombouts  <p.a.rombouts@home.nl>
+
+	* src/conf-parser.c,src/conf-parser.h,src/conff.c,src/conff.h,
+	  src/dns_query.c,src/list.c,src/list.h,src/main.c,src/servers.c,
+	  src/servers.h,src/status.c
+	Use a linked list instead of a dynamic array to hold the server
+	configuration options.
+
 2012-05-07  Paul A. Rombouts  <p.a.rombouts@home.nl>
 
 	* src/conff.c, src/conff.h, src/conf-parser.c, src/conf-keywords.h,
