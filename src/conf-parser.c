@@ -1250,7 +1250,7 @@ int confparse(FILE* in, char *prestr, globparm_t *global, llist *servers, int in
 	}
 	if(server.interval==-1) global->onquery=1;
 
-	if (!llist_grow_cl(servers,sizeof(servparm_t),(void(*)(void*))free_servparm)) {
+	if (!llist_grow_cl(servers,sizeof(servparm_t),(void(*)(void*))&free_servparm)) {
 	  OUTOFMEMERROR;
 	}
 	*((servparm_t*) llist_last(servers))= server;

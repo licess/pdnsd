@@ -687,6 +687,9 @@ int main(int argc,char *argv[])
 		}
 	}
 	if(sig) DEBUG_MSG("Signal %i caught.\n",sig);
+	/* By freeing the server configuration data, we should effectively be
+	   stopping threads from initiating new queries to remote servers. */
+	free_config_data();
 	write_disk_cache();
 	destroy_cache();
 	if(sig) log_warn("Caught signal %i. Exiting.",sig);

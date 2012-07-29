@@ -393,7 +393,21 @@ void free_servparm(servparm_t *serv)
 
 static void free_server_data(llist *sl)
 {
-	llist_free_cl(sl, (void(*)(void*))free_servparm);
+	llist_free_cl(sl, (void(*)(void*))&free_servparm);
+}
+
+void free_config_data()
+{
+	/* Lock the config data, in case any thread is still accessing it.
+	   But don't wait too long, because we are exiting anyway. */
+	if(exclusive_lock_server_data(2)) {
+		/* global.cache_dir, global.pidfile and global.scheme_file
+		   are not necessarily malloc'd, so cannot be safely freed here. */
+		free_zones(global.deleg_only_zones);
+		global.deleg_only_zones=NULL;
+		free_server_data(&servers);
+		exclusive_unlock_server_data(0);
+	}
 }
 
 /* Report the current configuration to the file descriptor f (for the status fifo, see status.c) */

@@ -1,7 +1,7 @@
 /* list.h - Dynamic array and list handling
 
    Copyright (C) 2001 Thomas Moestl
-   Copyright (C) 2002, 2003, 2007, 2009, 2011 Paul A. Rombouts
+   Copyright (C) 2002, 2003, 2007, 2009, 2011, 2012 Paul A. Rombouts
 
   This file is part of the pdnsd package.
 
@@ -25,6 +25,7 @@
 #define LIST_H
 
 #include <stdlib.h>
+#include <stddef.h>	/* for offsetof */
 #include <string.h>
 #include "pdnsd_assert.h"
 
@@ -112,12 +113,15 @@ dlist dlist_grow(dlist a, size_t len);
 
 /* linked list data type. */
 struct llistnode_s {
-  struct llistnode_s *next;
-  char *data[0];
+  void **next;   /* Points to data field in the next llistnode_s (may be NULL). */
+  void *data[0];
 };
 
+#define llist_nodebaseaddr(p) ((struct llistnode_s *)(((char *)p)-offsetof(struct llistnode_s,data)))
+
 typedef struct {
-  struct llistnode_s *first, **last;
+  void **first;  /* Points to data field in the first llistnode (may be NULL). */
+  void ***last;  /* Points to the next field of the last llistnode. */
 }
   llist;
 
@@ -137,15 +141,13 @@ static int llist_isempty(llist *a)
 inline __attribute__((always_inline))
 static void *llist_first(llist *a)
 {
-  struct llistnode_s *p= a->first;
-  return p?p->data:NULL;
+  return a->first;
 }
 
 inline __attribute__((always_inline))
 static void *llist_next(void *ref)
 {
-  struct llistnode_s *next= *(((struct llistnode_s **)ref)-1);
-  return next?next->data:NULL;
+  return llist_nodebaseaddr(ref)->next;
 }
 
 inline __attribute__((always_inline))

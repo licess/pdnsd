@@ -182,6 +182,7 @@ extern llist servers;
 
 int read_config_file(const char *nm, globparm_t *global, llist *servers, int includedepth, char **errstr);
 int reload_config_file(const char *nm, char **errstr);
+void free_config_data();
 void free_zone(void *ptr);
 void free_slist_domain(void *ptr);
 void free_slist_array(slist_array sla);

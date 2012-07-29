@@ -2539,7 +2539,7 @@ static int p_recursive_query(query_stat_array q, const unsigned char *name, int 
 		/* Authority records present. Ask them, because the answer was non-authoritative. */
 		qstatnode_t qsn={q,qslist};
 		unsigned char save_ns=ent->c_ns,save_soa=ent->c_soa;
-		
+
 		if(qse->aa || qse->ra) {
 			/* The server claimed to be authoritative or have recursion available,
 			   yet we did not completely trust the answer for some reason.
